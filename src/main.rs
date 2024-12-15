@@ -12,6 +12,7 @@ fn main() {
     };
 
     let v = p1 - p2;
+    let length = v.length();
 
-    println!("Result: {0}, {1}", v.x, v.y);
+    println!("Result: {0}", length);
 }

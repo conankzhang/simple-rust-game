@@ -6,6 +6,15 @@ pub struct Vector
     pub y: f32
 }
 
+impl Vector
+{
+    pub fn length(&self) -> f32
+    {
+        ((self.x * self.x) + (self.y * self.y)).sqrt()
+    }
+}
+
+
 pub struct Point
 {
     pub x: f32,
