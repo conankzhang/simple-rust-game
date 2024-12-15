@@ -1,4 +1,4 @@
-use std::ops::{Mul, Div, Sub};
+use std::ops::{Mul, Div, Add, Sub};
 
 pub struct Vector
 {
@@ -21,6 +21,32 @@ impl Vector
     pub fn normalized(&self) -> Vector
     {
         self / self.length()
+    }
+}
+
+impl<'a> Add for &'a Vector
+{
+    type Output = Vector;
+    fn add(self, other: &'a Vector) -> Vector
+    {
+        Vector
+        {
+            x: self.x + other.x,
+            y: self.y + other.y
+        }
+    }
+}
+
+impl<'a> Sub for &'a Vector
+{
+    type Output = Vector;
+    fn sub(self, other: &'a Vector) -> Vector
+    {
+        Vector
+        {
+            x: self.x - other.x,
+            y: self.y - other.y
+        }
     }
 }
 
@@ -68,7 +94,6 @@ impl<'a> Sub for &'a Point
         }
     }
 }
-
 
 impl Point
 {
