@@ -17,6 +17,11 @@ impl Vector
     {
         (self.x * self.x) + (self.y * self.y)
     }
+
+    pub fn normalized(&self) -> Vector
+    {
+        self / self.length()
+    }
 }
 
 impl<'a> Mul<f32> for &'a Vector
