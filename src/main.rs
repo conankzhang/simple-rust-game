@@ -1,26 +1,21 @@
-pub mod math;
+mod math;
 
 fn main() {
-    let p = math::Point {
-        x: 0.0,
-        y: -1.0
+    let v = math::Vector {
+        x: 3.0,
+        y: 4.0
     };
 
-    let i = math::Point{
-        x: 1.0,
-        y: 1.0
-    };
+    let v_length = v.length();
+    println!("{0}", v_length);
 
-    let c = math::Point{
-        x: 2.0,
-        y: -1.0
-    };
+    let v2 = &v * 2.0;
 
-    let ip = &p - &i;
-    let cp = &p - &c;
-    let length_squared_ip = ip.length_squared();
-    let length_squared_cp = cp.length_squared();
+    let v2_length = v2.length();
+    println!("{0}", v2_length);
 
-    println!("IP: {0}", length_squared_ip);
-    println!("CP: {0}", length_squared_cp);
+    let v3 = &v / 2.0;
+
+    let v3_length = v3.length();
+    println!("{0}", v3_length);
 }

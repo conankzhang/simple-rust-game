@@ -1,4 +1,4 @@
-use std::ops::Sub;
+use std::ops::{Mul, Div, Sub};
 
 pub struct Vector
 {
@@ -16,6 +16,32 @@ impl Vector
     pub fn length_squared(&self) -> f32
     {
         (self.x * self.x) + (self.y * self.y)
+    }
+}
+
+impl<'a> Mul<f32> for &'a Vector
+{
+    type Output = Vector;
+    fn mul(self, scalar: f32)-> Vector
+    {
+        Vector
+        {
+            x: self.x * scalar,
+            y: self.y * scalar
+        }
+    }
+}
+
+impl<'a> Div<f32> for &'a Vector
+{
+    type Output = Vector;
+    fn div(self, scalar: f32)-> Vector
+    {
+        Vector
+        {
+            x: self.x / scalar,
+            y: self.y / scalar
+        }
     }
 }
 
@@ -37,6 +63,7 @@ impl<'a> Sub for &'a Point
         }
     }
 }
+
 
 impl Point
 {
