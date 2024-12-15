@@ -1,18 +1,26 @@
 pub mod math;
 
 fn main() {
-    let p1 = math::Point {
+    let p = math::Point {
         x: 0.0,
         y: -1.0
     };
 
-    let p2 = math::Point{
+    let i = math::Point{
         x: 1.0,
         y: 1.0
     };
 
-    let v = p1 - p2;
-    let length = v.length();
+    let c = math::Point{
+        x: 2.0,
+        y: -1.0
+    };
 
-    println!("Result: {0}", length);
+    let ip = &p - &i;
+    let cp = &p - &c;
+    let length_squared_ip = ip.length_squared();
+    let length_squared_cp = cp.length_squared();
+
+    println!("IP: {0}", length_squared_ip);
+    println!("CP: {0}", length_squared_cp);
 }

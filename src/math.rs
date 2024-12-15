@@ -12,8 +12,12 @@ impl Vector
     {
         ((self.x * self.x) + (self.y * self.y)).sqrt()
     }
-}
 
+    pub fn length_squared(&self) -> f32
+    {
+        (self.x * self.x) + (self.y * self.y)
+    }
+}
 
 pub struct Point
 {
@@ -21,10 +25,10 @@ pub struct Point
     pub y: f32
 }
 
-impl Sub for Point
+impl<'a> Sub for &'a Point
 {
     type Output = Vector;
-    fn sub(self, other: Point) -> Vector
+    fn sub(self, other: &'a Point) -> Vector
     {
         Vector
         {
