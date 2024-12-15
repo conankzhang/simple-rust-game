@@ -1,17 +1,17 @@
 pub mod math;
 
 fn main() {
-    let p = math::Point {
+    let p1 = math::Point {
+        x: 0.0,
+        y: -1.0
+    };
+
+    let p2 = math::Point{
         x: 1.0,
-        y: 0.0
+        y: 1.0
     };
 
-    let v = math::Vector{
-        x: 2.0,
-        y: 3.0
-    };
+    let v = p1 - p2;
 
-    let r = p.add_vector(v);
-
-    println!("Result: {0}, {1}", r.x, r.y);
+    println!("Result: {0}, {1}", v.x, v.y);
 }
