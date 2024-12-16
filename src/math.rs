@@ -22,6 +22,11 @@ impl Vector
     {
         self / self.length()
     }
+
+    pub fn dot_product<'a>(&self, other: &'a Vector) -> f32
+    {
+        (self.x * other.x) + (self.y * other.y)
+    }
 }
 
 impl<'a> Add for &'a Vector
@@ -97,7 +102,7 @@ impl<'a> Sub for &'a Point
 
 impl Point
 {
-    pub fn add_vector(&self, v: Vector) -> Point
+    pub fn add_vector<'a>(&self, v: &'a Vector) -> Point
     {
         Point
         {
