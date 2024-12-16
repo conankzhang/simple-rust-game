@@ -80,34 +80,3 @@ impl<'a> Div<f32> for &'a Vector
         }
     }
 }
-
-pub struct Point
-{
-    pub x: f32,
-    pub y: f32
-}
-
-impl<'a> Sub for &'a Point
-{
-    type Output = Vector;
-    fn sub(self, other: &'a Point) -> Vector
-    {
-        Vector
-        {
-            x: self.x - other.x,
-            y: self.y - other.y
-        }
-    }
-}
-
-impl Point
-{
-    pub fn add_vector<'a>(&self, v: &'a Vector) -> Point
-    {
-        Point
-        {
-            x: self.x + v.x,
-            y: self.y + v.y
-        }
-    }
-}
