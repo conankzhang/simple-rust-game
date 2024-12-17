@@ -1,4 +1,29 @@
-use std::ops::{Mul, Div, Add, Sub};
+use std::ops::{Add, Sub, Mul, Div};
+
+pub fn dot_product<'a, 'b>(first: &'a Vector, second: &'b Vector) -> f32
+{
+    (first.x * second.x) + (first.y * second.y)
+}
+
+pub fn approach(goal: f32, current: f32, delta_time: f32) -> f32
+{
+    let difference = goal - current;
+
+    if difference > delta_time
+    {
+        return current + delta_time;
+    }
+
+    if difference < -delta_time
+    {
+        return current - delta_time;
+    }
+
+    else {
+        return goal;
+    }
+}
+
 
 pub struct Vector
 {
@@ -21,11 +46,6 @@ impl Vector
     pub fn normalized(&self) -> Vector
     {
         self / self.length()
-    }
-
-    pub fn dot_product<'a>(&self, other: &'a Vector) -> f32
-    {
-        (self.x * other.x) + (self.y * other.y)
     }
 }
 
