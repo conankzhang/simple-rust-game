@@ -5,9 +5,9 @@
     clippy::unnecessary_wraps
 )]
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Ok, Result};
 use log::*;
-use vk::DeviceQueueCreateInfo;
+use vk::{ComponentSwizzle, DeviceQueueCreateInfo, ImageView};
 
 use std::collections::HashSet;
 use std::ffi::CStr;
@@ -263,6 +263,7 @@ impl App {
 
         let device = create_logical_device(&entry, &instance, &mut data)?;
         create_swapchain(window, &instance, &device, &mut data)?;
+        create_swapchain_image_views(&device, &mut data)?;
 
         Ok(Self{entry, instance, data, device})
     }
@@ -279,6 +280,10 @@ impl App {
     }
 
     unsafe fn destroy(&mut self) {
+        self.data.swapchain_image_views
+            .iter()
+            .for_each(|v| self.device.destroy_image_view(*v, None));
+
         self.device.destroy_swapchain_khr(self.data.swapchain, None);
         self.device.destroy_device(None);
         if VALIDATION_ENABLED
@@ -303,6 +308,7 @@ struct AppData {
     swapchain_extent: vk::Extent2D,
     swapchain: vk::SwapchainKHR,
     swapchain_images: Vec<vk::Image>,
+    swapchain_image_views: Vec<ImageView>,
 }
 
 #[derive(Debug, Error)]
@@ -493,6 +499,39 @@ unsafe fn create_swapchain(window: &Window, instance: &Instance, device: &Device
     data.swapchain_extent = extent;
     data.swapchain = device.create_swapchain_khr(&info, None)?;
     data.swapchain_images = device.get_swapchain_images_khr(data.swapchain)?;
+
+    Ok(())
+}
+
+unsafe fn create_swapchain_image_views(device: &Device, data: &mut AppData) ->Result<()>
+{
+    data.swapchain_image_views = data
+        .swapchain_images
+        .iter()
+        .map(|i| {
+            let components = vk::ComponentMapping::builder()
+                .r(ComponentSwizzle::IDENTITY)
+                .g(ComponentSwizzle::IDENTITY)
+                .b(ComponentSwizzle::IDENTITY)
+                .a(ComponentSwizzle::IDENTITY);
+
+            let subresource_range = vk::ImageSubresourceRange::builder()
+                .aspect_mask(vk::ImageAspectFlags::COLOR)
+                .base_mip_level(0)
+                .level_count(1)
+                .base_array_layer(0)
+                .layer_count(1);
+
+            let info = vk::ImageViewCreateInfo::builder()
+                .image(*i)
+                .view_type(vk::ImageViewType::_2D)
+                .format(data.swapchain_format)
+                .components(components)
+                .subresource_range(subresource_range);
+
+            device.create_image_view(&info, None)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(())
 }
