@@ -5,31 +5,31 @@
     clippy::unnecessary_wraps
 )]
 
+mod math;
+
 use anyhow::{anyhow, Ok, Result};
 use log::*;
 use vk::{ComponentSwizzle, DeviceQueueCreateInfo, ImageView};
 
 use std::collections::HashSet;
-use std::ffi::CStr;
-use std::os::raw::c_void;
+use std::ffi::{c_void, CStr};
+use std::time::Instant;
 
 use thiserror::Error;
 
+use vulkanalia::bytecode::Bytecode;
 use vulkanalia::loader::{LibloadingLoader, LIBRARY};
 use vulkanalia::prelude::v1_0::*;
 use vulkanalia::Version;
-use vulkanalia::window as vk_window;
 use vulkanalia::vk::ExtDebugUtilsExtension;
 use vulkanalia::vk::KhrSurfaceExtension;
 use vulkanalia::vk::KhrSwapchainExtension;
+use vulkanalia::window as vk_window;
 
 use winit::dpi::LogicalSize;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
-
-mod math;
-use std::time::Instant;
 
 const PORTABILITY_MACOS_VERSION: Version = Version::new(1, 3, 216);
 const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
@@ -264,6 +264,7 @@ impl App {
         let device = create_logical_device(&entry, &instance, &mut data)?;
         create_swapchain(window, &instance, &device, &mut data)?;
         create_swapchain_image_views(&device, &mut data)?;
+        create_pipeline(&device, &mut data)?;
 
         Ok(Self{entry, instance, data, device})
     }
@@ -534,4 +535,42 @@ unsafe fn create_swapchain_image_views(device: &Device, data: &mut AppData) ->Re
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(())
+}
+
+unsafe fn create_pipeline(device: &Device, data: &mut AppData) ->Result<()>
+{
+    let vert = include_bytes!("../shaders/vert.spv");
+    let frag = include_bytes!("../shaders/frag.spv");
+
+    let vert_shader_module = create_shader_module(device, &vert[..])?;
+    let frag_shader_module = create_shader_module(device, &frag[..])?;
+
+    device.destroy_shader_module(vert_shader_module, None);
+    device.destroy_shader_module(frag_shader_module, None);
+
+    let vert_stage = vk::PipelineShaderStageCreateInfo::builder()
+        .stage(vk::ShaderStageFlags::VERTEX)
+        .module(vert_shader_module)
+        .name(b"main\0");
+
+    let frag_stage = vk::PipelineShaderStageCreateInfo::builder()
+        .stage(vk::ShaderStageFlags::FRAGMENT)
+        .module(frag_shader_module)
+        .name(b"main\0");
+
+    Ok(())
+}
+
+unsafe fn create_shader_module(device: &Device, bytecode: &[u8]) ->Result<vk::ShaderModule>
+{
+    let vert = include_bytes!("../shaders/vert.spv");
+    let frag = include_bytes!("../shaders/frag.spv");
+
+    let bytecode = Bytecode::new(bytecode).unwrap();
+
+    let info = vk::ShaderModuleCreateInfo::builder()
+        .code_size(bytecode.code_size())
+        .code(bytecode.code());
+
+    Ok(device.create_shader_module(&info, None)?)
 }
