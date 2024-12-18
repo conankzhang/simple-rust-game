@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 
 use cgmath::{Deg, Point3};
+use command::{begin_single_time_commands, create_command_buffers, create_command_pool, end_single_time_commands};
+use descriptor::{create_descriptor_pool, create_descriptor_set_layout, create_descriptor_sets, create_uniform_buffers, Mat4, UniformBufferObject};
 use device::{create_logical_device, pick_physical_device};
 use image::{create_texture_image, create_texture_image_view, create_texture_sampler};
 use log::*;
@@ -28,12 +30,13 @@ use vulkanalia::{window as vk_window, Version};
 
 use winit::window::Window;
 
-mod vertex;
-mod image;
+mod command;
+mod descriptor;
 mod device;
+mod image;
 mod swapchain;
+mod vertex;
 
-type Mat4 = cgmath::Matrix4<f32>;
 type Vec3 = cgmath::Vector3<f32>;
 
 pub const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
@@ -51,18 +54,12 @@ static VERTICES: [Vertex; 8] = [
     Vertex::new(Vector{x: 0.5, y: 0.5, z: -0.5, w: 0.0}, Vector{x: 0.0, y: 0.0, z: 1.0, w: 0.0}),
     Vertex::new(Vector{x: -0.5, y: 0.5, z: -0.5, w: 0.0}, Vector{x: 1.0, y: 1.0, z: 1.0, w: 0.0}),
 ];
-const INDICES: &[u32] = &[
+
+pub const INDICES: &[u32] = &[
     0, 1, 2, 2, 3, 0,
     4, 5, 6, 6, 7, 4,
 ];
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-struct UniformBufferObject {
-    model: Mat4,
-    view: Mat4,
-    projection: Mat4,
-}
 
 #[derive(Debug)]
 pub struct Renderer {
@@ -563,67 +560,6 @@ unsafe fn create_framebuffers(device: &Device, data: &mut RenderData) ->Result<(
     Ok(())
 }
 
-unsafe fn create_command_pool(instance: &Instance, device: &Device, data: &mut RenderData) ->Result<()>
-{
-    let indices = QueueFamilyIndices::get(instance, data, data.physical_device)?;
-
-    let info = vk::CommandPoolCreateInfo::builder()
-        .flags(vk::CommandPoolCreateFlags::empty())
-        .queue_family_index(indices.graphics);
-
-    data.command_pool = device.create_command_pool(&info, None)?;
-
-    Ok(())
-}
-
-unsafe fn create_command_buffers(device: &Device, data: &mut RenderData) ->Result<()>
-{
-    let allocate_info = vk::CommandBufferAllocateInfo::builder()
-        .command_pool(data.command_pool)
-        .level(vk::CommandBufferLevel::PRIMARY)
-        .command_buffer_count(data.framebuffers.len() as u32);
-
-    data.command_buffers = device.allocate_command_buffers(&allocate_info)?;
-
-    for(i, command_buffer) in data.command_buffers.iter().enumerate() {
-        let inheritance = vk::CommandBufferInheritanceInfo::builder();
-
-        let info = vk::CommandBufferBeginInfo::builder()
-            .flags(vk::CommandBufferUsageFlags::empty())
-            .inheritance_info(&inheritance);
-
-        device.begin_command_buffer(*command_buffer, &info)?;
-
-        let render_area = vk::Rect2D::builder()
-            .offset(vk::Offset2D::default())
-            .extent(data.swapchain_extent);
-
-        let color_clear_value = vk::ClearValue {
-            color: vk::ClearColorValue {
-                float32: [0.0, 0.0, 0.0, 1.0],
-            },
-        };
-
-        let clear_values = &[color_clear_value];
-        let info = vk::RenderPassBeginInfo::builder()
-            .render_pass(data.render_pass)
-            .framebuffer(data.framebuffers[i])
-            .render_area(render_area)
-            .clear_values(clear_values);
-        device.cmd_begin_render_pass(*command_buffer, &info, vk::SubpassContents::INLINE);
-        device.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.pipeline);
-        device.cmd_bind_vertex_buffers(*command_buffer, 0, &[data.vertex_buffer], &[0]);
-        device.cmd_bind_index_buffer(*command_buffer, data.index_buffer, 0, vk::IndexType::UINT32);
-        device.cmd_bind_descriptor_sets(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.pipeline_layout, 0, &[data.descriptor_sets[i]], &[]);
-        device.cmd_draw_indexed(*command_buffer, INDICES.len() as u32, 1, 0, 0,0);
-        device.cmd_end_render_pass(*command_buffer);
-        device.end_command_buffer(*command_buffer)?;
-    }
-
-
-    Ok(())
-}
-
 unsafe fn create_sync_objects(device: &Device, data: &mut RenderData) ->Result<()>
 {
     let semaphore_info = vk::SemaphoreCreateInfo::builder();
@@ -678,38 +614,6 @@ unsafe fn copy_buffer(device: &Device, data: &RenderData, source: vk::Buffer, de
     device.cmd_copy_buffer(command_buffer, source, destination, &[regions]);
 
     end_single_time_commands(device, data, command_buffer)?;
-
-    Ok(())
-}
-
-unsafe fn begin_single_time_commands(device: &Device, data: &RenderData) -> Result<vk::CommandBuffer>
-{
-    let info = vk::CommandBufferAllocateInfo::builder()
-        .level(vk::CommandBufferLevel::PRIMARY)
-        .command_pool(data.command_pool)
-        .command_buffer_count(1);
-
-    let command_buffer = device.allocate_command_buffers(&info)?[0];
-    let info = vk::CommandBufferBeginInfo::builder()
-        .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
-
-    device.begin_command_buffer(command_buffer, &info)?;
-
-    Ok(command_buffer)
-}
-
-unsafe fn end_single_time_commands(device: &Device, data: &RenderData, command_buffer: vk::CommandBuffer) -> Result<()>
-{
-    device.end_command_buffer(command_buffer)?;
-
-    let command_buffers = &[command_buffer];
-    let info = vk::SubmitInfo::builder()
-        .command_buffers(command_buffers);
-
-    device.queue_submit(data.graphics_queue, &[info], vk::Fence::null())?;
-    device.queue_wait_idle(data.graphics_queue)?;
-
-    device.free_command_buffers(data.command_pool, &[command_buffer]);
 
     Ok(())
 }
@@ -799,91 +703,6 @@ unsafe fn get_memory_type_index(instance: &Instance, data: &RenderData, properti
             suitable && memory_type.property_flags.contains(properties)
         })
         .ok_or_else(|| anyhow!("Failed to find suitable memory type."))
-}
-
-unsafe fn create_descriptor_set_layout(device: &Device, data: &mut RenderData) ->Result<()>
-{
-    let ubo_binding = vk::DescriptorSetLayoutBinding::builder()
-        .binding(0)
-        .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-        .descriptor_count(1)
-        .stage_flags(vk::ShaderStageFlags::VERTEX);
-
-    let bindings = &[ubo_binding];
-    let info = vk::DescriptorSetLayoutCreateInfo::builder()
-        .bindings(bindings);
-
-    data.descriptor_set_layout = device.create_descriptor_set_layout(&info, None)?;
-
-    Ok(())
-}
-
-unsafe fn create_uniform_buffers(instance: &Instance, device: &Device, data: &mut RenderData) ->Result<()>
-{
-    data.uniform_buffers.clear();
-    data.uniform_buffers_memory.clear();
-
-    for _ in 0..data.swapchain_images.len() {
-        let (uniform_buffer, uniform_buffer_memory) = create_buffer(
-            instance,
-            device,
-            data,
-            size_of::<UniformBufferObject>() as u64,
-            vk::BufferUsageFlags::UNIFORM_BUFFER,
-            vk::MemoryPropertyFlags::HOST_COHERENT | vk::MemoryPropertyFlags::HOST_VISIBLE
-        )?;
-
-        data.uniform_buffers.push(uniform_buffer);
-        data.uniform_buffers_memory.push(uniform_buffer_memory);
-    }
-
-    Ok(())
-}
-
-unsafe fn create_descriptor_pool(device: &Device, data: &mut RenderData) ->Result<()>
-{
-    let ubo_size = vk::DescriptorPoolSize::builder()
-        .type_(vk::DescriptorType::UNIFORM_BUFFER)
-        .descriptor_count(data.swapchain_images.len() as u32);
-
-    let pool_sizes = &[ubo_size];
-    let info = vk::DescriptorPoolCreateInfo::builder()
-        .pool_sizes(pool_sizes)
-        .max_sets(data.swapchain_images.len() as u32);
-
-    data.descriptor_pool = device.create_descriptor_pool(&info, None)?;
-
-    Ok(())
-}
-
-unsafe fn create_descriptor_sets(device: &Device, data: &mut RenderData) ->Result<()>
-{
-    let layouts = vec![data.descriptor_set_layout; data.swapchain_images.len()];
-    let info = vk::DescriptorSetAllocateInfo::builder()
-        .descriptor_pool(data.descriptor_pool)
-        .set_layouts(&layouts);
-
-    data.descriptor_sets = device.allocate_descriptor_sets(&info)?;
-
-    for i in 0..data.swapchain_images.len()
-    {
-        let info = vk::DescriptorBufferInfo::builder()
-            .buffer(data.uniform_buffers[i])
-            .offset(0)
-            .range(size_of::<UniformBufferObject>() as u64);
-
-        let buffer_info = &[info];
-        let ubo_write = vk::WriteDescriptorSet::builder()
-            .dst_set(data.descriptor_sets[i])
-            .dst_binding(0)
-            .dst_array_element(0)
-            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-            .buffer_info(buffer_info);
-
-        device.update_descriptor_sets(&[ubo_write], &[] as &[vk::CopyDescriptorSet]);
-    }
-
-    Ok(())
 }
 
 unsafe fn create_instance(window: &Window, entry: &Entry, data: &mut RenderData) -> Result<Instance> {
