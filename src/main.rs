@@ -5,9 +5,8 @@
     clippy::unnecessary_wraps
 )]
 
-mod math;
-
 use anyhow::{anyhow, Result};
+use cgmath::{Deg, Point3};
 use log::*;
 use vk::{ComponentSwizzle, DeviceQueueCreateInfo, ImageView};
 
@@ -35,7 +34,10 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
-type Vector = math::Vector;
+mod math;
+type Vector = math::vector::Vector;
+type Mat4 = cgmath::Matrix4<f32>;
+type Vec3 = cgmath::Vector3<f32>;
 
 const PORTABILITY_MACOS_VERSION: Version = Version::new(1, 3, 216);
 const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
@@ -57,6 +59,14 @@ const INDICES: &[u32] = &[0, 1, 2, 2, 3, 0];
 struct Vertex {
     position : Vector,
     color: Vector
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+struct UniformBufferObject {
+    model: Mat4,
+    view: Mat4,
+    projection: Mat4,
 }
 
 impl Vertex {
@@ -308,6 +318,7 @@ struct App{
     frame: usize,
     resized: bool,
     minimized: bool,
+    start: Instant,
 }
 
 impl App {
@@ -324,16 +335,18 @@ impl App {
         create_swapchain_image_views(&device, &mut data)?;
 
         create_render_pass(&instance, &device, &mut data)?;
+        create_descriptor_set_layout(&device, &mut data)?;
         create_pipeline(&device, &mut data)?;
 
         create_framebuffers(&device, &mut data)?;
         create_command_pool(&instance, &device, &mut data)?;
         create_vertex_buffer(&instance, &device, &mut data)?;
         create_index_buffer(&instance, &device, &mut data)?;
+        create_uniform_buffers(&instance, &device, &mut data)?;
         create_command_buffers(&device, &mut data)?;
         create_sync_objects(&device, &mut data)?;
 
-        Ok(Self{entry, instance, data, device, frame: 0, resized: false, minimized: false})
+        Ok(Self{entry, instance, data, device, frame: 0, resized: false, minimized: false, start: Instant::now()})
     }
 
     unsafe fn recreate_swapchain(&mut self, window: &Window) -> Result<()> {
@@ -342,13 +355,15 @@ impl App {
 
         create_swapchain(window, &self.instance, &self.device, &mut self.data)?;
         create_swapchain_image_views(&self.device, &mut self.data)?;
+
         create_render_pass(&self.instance, &self.device, &mut self.data)?;
         create_pipeline(&self.device, &mut self.data)?;
+
         create_framebuffers(&self.device, &mut self.data)?;
+        create_uniform_buffers(&self.instance, &self.device, &mut self.data)?;
         create_command_buffers(&self.device, &mut self.data)?;
+
         self.data.images_in_flight.resize(self.data.swapchain_images.len(), vk::Fence::null());
-
-
 
         Ok(())
     }
@@ -357,6 +372,44 @@ impl App {
     {
         character.position = &character.position + &(&character.velocity * delta_time);
         character.velocity = &character.velocity + &(&character.gravity * delta_time);
+    }
+
+    unsafe fn update_uniform_buffer(&self, image_index: usize) -> Result<()>
+    {
+        let time = self.start.elapsed().as_secs_f32();
+
+        let model = Mat4::from_axis_angle(
+            Vec3{x: 0.0, y:0.0, z:1.0},
+            Deg(90.0) * time
+        );
+
+        let view = Mat4::look_at_rh(
+            Point3{x: 2.0, y: 2.0, z: 2.0},
+            Point3{x: 0.0, y: 0.0, z: 0.0},
+            Vec3{x: 0.0, y: 0.0, z: 1.0},
+        );
+
+        let mut projection = cgmath::perspective(
+            Deg(45.0),
+            self.data.swapchain_extent.width as f32 / self.data.swapchain_extent.height as f32,
+             0.1,
+              10.0);
+
+        projection[1][1] *= -1.0;
+
+        let ubo = UniformBufferObject{model, view, projection};
+
+        let memory = self.device.map_memory(
+            self.data.uniform_buffers_memory[image_index],
+            0,
+            size_of::<UniformBufferObject>() as u64,
+            vk::MemoryMapFlags::empty()
+        )?;
+
+        memcpy(&ubo, memory.cast(), 1);
+        self.device.unmap_memory(self.data.uniform_buffers_memory[image_index]);
+
+        Ok(())
     }
 
     unsafe fn render(&mut self, window: &Window) -> Result<()>
@@ -386,6 +439,8 @@ impl App {
         }
 
         self.data.images_in_flight[image_index as usize] = self.data.in_flight_fences[self.frame];
+
+        self.update_uniform_buffer(image_index)?;
 
         let wait_semaphores = &[self.data.image_available_semaphores[self.frame]];
         let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
@@ -425,6 +480,13 @@ impl App {
     }
 
     unsafe fn destroy_swapchain(&mut self) {
+        self.data.uniform_buffers
+            .iter()
+            .for_each(|b| self.device.destroy_buffer(*b, None));
+        self.data.uniform_buffers_memory
+            .iter()
+            .for_each(|m| self.device.free_memory(*m, None));
+
         self.data.framebuffers
             .iter()
             .for_each(|f| self.device.destroy_framebuffer(*f, None));
@@ -443,6 +505,7 @@ impl App {
 
     unsafe fn destroy(&mut self) {
         self.destroy_swapchain();
+        self.device.destroy_descriptor_set_layout(self.data.descriptor_set_layout, None);
 
         self.device.destroy_buffer(self.data.index_buffer, None);
         self.device.free_memory(self.data.index_buffer_memory, None);
@@ -489,6 +552,7 @@ struct AppData {
     swapchain_image_views: Vec<ImageView>,
 
     render_pass: vk::RenderPass,
+    descriptor_set_layout: vk::DescriptorSetLayout,
     pipeline_layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
 
@@ -505,6 +569,8 @@ struct AppData {
     vertex_buffer_memory: vk::DeviceMemory,
     index_buffer: vk::Buffer,
     index_buffer_memory: vk::DeviceMemory,
+    uniform_buffers: Vec<vk::Buffer>,
+    uniform_buffers_memory: Vec<vk::DeviceMemory>,
 }
 
 #[derive(Debug, Error)]
@@ -802,7 +868,9 @@ unsafe fn create_pipeline(device: &Device, data: &mut AppData) ->Result<()>
         .attachments(attachments)
         .blend_constants([0.0, 0.0, 0.0, 0.0]);
 
-    let layout_info = vk::PipelineLayoutCreateInfo::builder();
+    let set_layouts = &[data.descriptor_set_layout];
+    let layout_info = vk::PipelineLayoutCreateInfo::builder()
+        .set_layouts(set_layouts);
     data.pipeline_layout = device.create_pipeline_layout(&layout_info, None)?;
 
     let stages = &[vert_stage, frag_stage];
@@ -1115,7 +1183,6 @@ unsafe fn create_index_buffer(instance: &Instance, device: &Device, data: &mut A
     Ok(())
 }
 
-
 unsafe fn get_memory_type_index(instance: &Instance, data: &AppData, properties: vk::MemoryPropertyFlags, requirements: vk::MemoryRequirements) ->Result<u32>
 {
     let memory = instance.get_physical_device_memory_properties(data.physical_device);
@@ -1127,4 +1194,43 @@ unsafe fn get_memory_type_index(instance: &Instance, data: &AppData, properties:
             suitable && memory_type.property_flags.contains(properties)
         })
         .ok_or_else(|| anyhow!("Failed to find suitable memory type."))
+}
+
+unsafe fn create_descriptor_set_layout(device: &Device, data: &mut AppData) ->Result<()>
+{
+    let ubo_binding = vk::DescriptorSetLayoutBinding::builder()
+        .binding(0)
+        .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+        .descriptor_count(1)
+        .stage_flags(vk::ShaderStageFlags::VERTEX);
+
+    let bindings = &[ubo_binding];
+    let info = vk::DescriptorSetLayoutCreateInfo::builder()
+        .bindings(bindings);
+
+    data.descriptor_set_layout = device.create_descriptor_set_layout(&info, None)?;
+
+    Ok(())
+}
+
+unsafe fn create_uniform_buffers(instance: &Instance, device: &Device, data: &mut AppData) ->Result<()>
+{
+    data.uniform_buffers.clear();
+    data.uniform_buffers_memory.clear();
+
+    for _ in 0..data.swapchain_images.len() {
+        let (uniform_buffer, uniform_buffer_memory) = create_buffer(
+            instance,
+            device,
+            data,
+            size_of::<UniformBufferObject>() as u64,
+            vk::BufferUsageFlags::UNIFORM_BUFFER,
+            vk::MemoryPropertyFlags::HOST_COHERENT | vk::MemoryPropertyFlags::HOST_VISIBLE
+        )?;
+
+        data.uniform_buffers.push(uniform_buffer);
+        data.uniform_buffers_memory.push(uniform_buffer_memory);
+    }
+
+    Ok(())
 }
