@@ -21,7 +21,7 @@ use std::time::Instant;
 
 use winit::dpi::{LogicalSize, PhysicalPosition};
 use winit::event::{ElementState, Event, KeyEvent, WindowEvent};
-use winit::event_loop::EventLoop;
+use winit::event_loop::{EventLoop, EventLoopWindowTarget};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowBuilder};
 
@@ -57,6 +57,7 @@ fn main() -> Result<()> {
                     game.frame = (game.frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
                     game.renderer.render(frame, resized, &game.character, &window)
+
                 }.unwrap(),
                 WindowEvent::Resized(size) => {
                     if size.width == 0 || size.height == 0 {
@@ -71,10 +72,13 @@ fn main() -> Result<()> {
                 },
                 WindowEvent::KeyboardInput {event, ..} => {
                     game.handle_keyboard_event(event);
+                    if game.shut_down_requested
+                    {
+                        unsafe{ game.shut_down(&elwt);}
+                    }
                 },
                 WindowEvent::CloseRequested => {
-                    elwt.exit();
-                    unsafe{game.renderer.destroy(); }
+                    unsafe{ game.shut_down(&elwt);}
                 }
                 _ => {}
             }
@@ -101,6 +105,7 @@ struct Game{
     frame: usize,
     resized: bool,
     minimized: bool,
+    shut_down_requested: bool,
     start: Instant,
     character: Character,
     last_mouse: PhysicalPosition<f64>,
@@ -113,6 +118,7 @@ impl Game {
             frame: 0,
             resized: false,
             minimized: false,
+            shut_down_requested: false,
             start: Instant::now(),
             character: Character{
                 position: Vector{x:0.0, y:0.0, z: 0.0, w:0.0},
@@ -173,6 +179,9 @@ impl Game {
                 PhysicalKey::Code(KeyCode::ArrowDown) => {
                     self.character.velocity_input_goal.y = -10.0;
                 },
+                PhysicalKey::Code(KeyCode::Escape) => {
+                    self.shut_down_requested = true;
+                },
                 _ => {}
             }
         }
@@ -193,5 +202,11 @@ impl Game {
                 _ => {}
             }
         }
+    }
+
+    unsafe fn shut_down(&mut self, elwt: &EventLoopWindowTarget<()>)
+    {
+        elwt.exit();
+        unsafe{self.renderer.destroy(); }
     }
 }
