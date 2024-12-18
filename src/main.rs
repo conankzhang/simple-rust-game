@@ -6,8 +6,9 @@
 )]
 
 use anyhow::{anyhow, Result};
-use cgmath::{vec3, Deg, Point3};
+use cgmath::{Deg, Point3};
 use log::*;
+use math::vector::Vector;
 use vk::{ComponentSwizzle, DeviceQueueCreateInfo, ImageView};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
@@ -36,7 +37,6 @@ use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
 mod math;
-type Vector = math::vector::Vector;
 type Mat4 = cgmath::Matrix4<f32>;
 type Vec3 = cgmath::Vector3<f32>;
 
@@ -102,11 +102,11 @@ impl Vertex {
     }
 }
 
+#[derive(Clone, Debug)]
 struct Character
 {
     position : Vector,
     velocity: Vector,
-    gravity: Vector
 }
 
 fn main() -> Result<()> {
@@ -117,13 +117,6 @@ fn main() -> Result<()> {
         .with_title("Simple Rust Game")
         .with_inner_size(LogicalSize::new(1024, 768))
         .build(&event_loop)?;
-
-    let mut character = Character
-    {
-        position: Vector{x: 0.0, y: 0.0, z:0.0, w:0.0},
-        velocity: Vector{x: 2.0, y: 2.0, z:0.0, w:0.0},
-        gravity: Vector{x: 0.0, y: -2.0, z:0.0, w:0.0},
-    };
 
     let mut current_time = Instant::now();
 
@@ -138,7 +131,7 @@ fn main() -> Result<()> {
 
                     let delta_time = current_time.duration_since(previous_time);
 
-                    app.update(delta_time.as_secs_f32(), &mut character);
+                    app.update(delta_time.as_secs_f32());
                     app.render(&window)
                 }.unwrap(),
                 WindowEvent::Resized(size) => {
@@ -153,16 +146,33 @@ fn main() -> Result<()> {
                     if event.state == ElementState::Pressed {
                         match event.physical_key {
                             PhysicalKey::Code(KeyCode::ArrowLeft) => {
-
+                                app.character.velocity.x = -5.0;
                             },
                             PhysicalKey::Code(KeyCode::ArrowRight) => {
-
+                                app.character.velocity.x = 5.0;
                             },
                             PhysicalKey::Code(KeyCode::ArrowUp) => {
-
+                                app.character.velocity.y = 5.0;
                             },
                             PhysicalKey::Code(KeyCode::ArrowDown) => {
-
+                                app.character.velocity.y = -5.0;
+                            },
+                            _ => {}
+                        }
+                    }
+                    else if event.state == ElementState::Released {
+                        match event.physical_key {
+                            PhysicalKey::Code(KeyCode::ArrowLeft) => {
+                                app.character.velocity.x = 0.0;
+                            },
+                            PhysicalKey::Code(KeyCode::ArrowRight) => {
+                                app.character.velocity.x = 0.0;
+                            },
+                            PhysicalKey::Code(KeyCode::ArrowUp) => {
+                                app.character.velocity.y = 0.0;
+                            },
+                            PhysicalKey::Code(KeyCode::ArrowDown) => {
+                                app.character.velocity.y = 0.0;
                             },
                             _ => {}
                         }
@@ -339,6 +349,7 @@ struct App{
     resized: bool,
     minimized: bool,
     start: Instant,
+    character: Character,
 }
 
 impl App {
@@ -370,7 +381,7 @@ impl App {
         create_command_buffers(&device, &mut data)?;
         create_sync_objects(&device, &mut data)?;
 
-        Ok(Self{entry, instance, data, device, frame: 0, resized: false, minimized: false, start: Instant::now()})
+        Ok(Self{entry, instance, data, device, frame: 0, resized: false, minimized: false, start: Instant::now(), character: Character{position: Vector{x:0.0, y:0.0, z: 0.0, w:0.0}, velocity: Vector{x:0.0, y:0.0, z:0.0, w:0.0}}})
     }
 
     unsafe fn recreate_swapchain(&mut self, window: &Window) -> Result<()> {
@@ -394,10 +405,9 @@ impl App {
         Ok(())
     }
 
-    fn update(&mut self, delta_time : f32, character : & mut Character)
+    fn update(&mut self, delta_time : f32)
     {
-        character.position = &character.position + &(&character.velocity * delta_time);
-        character.velocity = &character.velocity + &(&character.gravity * delta_time);
+        self.character.position = &self.character.position + &((&self.character.velocity) * delta_time);
     }
 
     unsafe fn update_uniform_buffer(&self, image_index: usize) -> Result<()>
@@ -409,13 +419,13 @@ impl App {
             Deg(0.0)
         );
 
-        let position = vec3(0.0, 0.0, 0.0) + vec3(1.0, 0.0, 0.0) * time;
+        let position = Vec3{x: self.character.position.x, y: self.character.position.y, z: self.character.position.z};
         let transformation = Mat4::from_translation(position);
 
-        //model = model * transformation;
+        model = model * transformation;
 
         let view = Mat4::look_at_rh(
-            Point3{x: 2.0, y: 2.0, z: 2.0},
+            Point3{x: 0.0, y: -2.0, z: 2.0},
             Point3{x: 0.0, y: 0.0, z: 0.0},
             Vec3{x: 0.0, y: 0.0, z: 1.0},
         );
