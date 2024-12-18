@@ -37,13 +37,20 @@ const VALIDATION_LAYER: vk::ExtensionName = vk::ExtensionName::from_bytes(b"VK_L
 const DEVICE_EXTENSIONS: &[vk::ExtensionName] = &[vk::KHR_SWAPCHAIN_EXTENSION.name];
 const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
 
-static VERTICES: [Vertex; 4] = [
+static VERTICES: [Vertex; 8] = [
     Vertex::new(Vector{x: -0.5, y: -0.5, z: 0.0, w: 0.0}, Vector{x: 1.0, y: 0.0, z: 0.0, w: 0.0}),
     Vertex::new(Vector{x: 0.5, y: -0.5, z: 0.0, w: 0.0}, Vector{x: 0.0, y: 1.0, z: 0.0, w: 0.0}),
     Vertex::new(Vector{x: 0.5, y: 0.5, z: 0.0, w: 0.0}, Vector{x: 0.0, y: 0.0, z: 1.0, w: 0.0}),
     Vertex::new(Vector{x: -0.5, y: 0.5, z: 0.0, w: 0.0}, Vector{x: 1.0, y: 1.0, z: 1.0, w: 0.0}),
+    Vertex::new(Vector{x: -0.5, y: -0.5, z: -2.5, w: 0.0}, Vector{x: 1.0, y: 0.0, z: 0.0, w: 0.0}),
+    Vertex::new(Vector{x: 0.5, y: -0.5, z: -2.5, w: 0.0}, Vector{x: 0.0, y: 1.0, z: 0.0, w: 0.0}),
+    Vertex::new(Vector{x: 0.5, y: 0.5, z: -2.5, w: 0.0}, Vector{x: 0.0, y: 0.0, z: 1.0, w: 0.0}),
+    Vertex::new(Vector{x: -0.5, y: 0.5, z: -2.5, w: 0.0}, Vector{x: 1.0, y: 1.0, z: 1.0, w: 0.0}),
 ];
-const INDICES: &[u32] = &[0, 1, 2, 2, 3, 0];
+const INDICES: &[u32] = &[
+    0, 1, 2, 2, 3, 0,
+    4, 5, 6, 6, 7, 4,
+];
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -101,12 +108,13 @@ impl Renderer {
             Deg(0.0)
         );
 
-        let position = Vec3{x: character.position.x, y: character.position.y, z: character.position.z};
-        let transformation = Mat4::from_translation(position);
+        let translation = Vec3{x: character.position.x, y: character.position.y, z: character.position.z};
+        let position = Point3{x: character.position.x, y: character.position.y, z: character.position.z};
+        let transformation = Mat4::from_translation(translation);
 
         model = model * transformation;
 
-        let view_angle = character.position - character.view_angle.to_vector() * 5.0;
+        let view_angle = character.position - character.view_angle.to_vector() * 3.0;
         let eye = Point3{x: view_angle.x, y: view_angle.y, z: view_angle.z};
 
         let view = Mat4::look_at_rh(
@@ -116,10 +124,10 @@ impl Renderer {
         );
 
         let mut projection = cgmath::perspective(
-            Deg(45.0),
+            Deg(90.0),
             self.data.swapchain_extent.width as f32 / self.data.swapchain_extent.height as f32,
              0.1,
-              10.0);
+              1000.0);
 
         projection[1][1] *= -1.0;
 
