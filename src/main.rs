@@ -35,6 +35,8 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
+type Vector = math::Vector;
+
 const PORTABILITY_MACOS_VERSION: Version = Version::new(1, 3, 216);
 const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
 const VALIDATION_LAYER: vk::ExtensionName = vk::ExtensionName::from_bytes(b"VK_LAYER_KHRONOS_validation");
@@ -42,25 +44,23 @@ const DEVICE_EXTENSIONS: &[vk::ExtensionName] = &[vk::KHR_SWAPCHAIN_EXTENSION.na
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
 static VERTICES: [Vertex; 4] = [
-    Vertex::new(Vec3{x: -0.5, y: -0.5, z: 0.0}, Vec3{x: 1.0, y: 0.0, z: 0.0}),
-    Vertex::new(Vec3{x: 0.5, y: -0.5, z: 0.0}, Vec3{x: 0.0, y: 1.0, z: 0.0}),
-    Vertex::new(Vec3{x: 0.5, y: 0.5, z: 0.0}, Vec3{x: 0.0, y: 0.0, z: 1.0}),
-    Vertex::new(Vec3{x: -0.5, y: 0.5, z: 0.0}, Vec3{x: 1.0, y: 1.0, z: 1.0}),
+    Vertex::new(Vector{x: -0.5, y: -0.5, z: 0.0, w: 0.0}, Vector{x: 1.0, y: 0.0, z: 0.0, w: 0.0}),
+    Vertex::new(Vector{x: 0.5, y: -0.5, z: 0.0, w: 0.0}, Vector{x: 0.0, y: 1.0, z: 0.0, w: 0.0}),
+    Vertex::new(Vector{x: 0.5, y: 0.5, z: 0.0, w: 0.0}, Vector{x: 0.0, y: 0.0, z: 1.0, w: 0.0}),
+    Vertex::new(Vector{x: -0.5, y: 0.5, z: 0.0, w: 0.0}, Vector{x: 1.0, y: 1.0, z: 1.0, w: 0.0}),
 ];
 
 const INDICES: &[u32] = &[0, 1, 2, 2, 3, 0];
 
-type Vec3 = math::Vector;
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
-    position : Vec3,
-    color: Vec3
+    position : Vector,
+    color: Vector
 }
 
 impl Vertex {
-    const fn new(position: Vec3, color: Vec3) -> Self {
+    const fn new(position: Vector, color: Vector) -> Self {
         Self {position, color}
     }
 
@@ -76,15 +76,15 @@ impl Vertex {
         let position = vk::VertexInputAttributeDescription::builder()
             .binding(0)
             .location(0)
-            .format(vk::Format::R32G32B32_SFLOAT)
+            .format(vk::Format::R32G32B32A32_SFLOAT)
             .offset(0)
             .build();
 
         let color = vk::VertexInputAttributeDescription::builder()
             .binding(0)
             .location(1)
-            .format(vk::Format::R32G32B32_SFLOAT)
-            .offset(size_of::<Vec3>() as u32)
+            .format(vk::Format::R32G32B32A32_SFLOAT)
+            .offset(size_of::<Vector>() as u32)
             .build();
 
         [position, color]
@@ -93,9 +93,9 @@ impl Vertex {
 
 struct Character
 {
-    position : Vec3,
-    velocity: Vec3,
-    gravity: Vec3
+    position : Vector,
+    velocity: Vector,
+    gravity: Vector
 }
 
 fn main() -> Result<()> {
@@ -109,9 +109,9 @@ fn main() -> Result<()> {
 
     let mut character = Character
     {
-        position: math::Vector{x: 0.0, y: 0.0, z:0.0},
-        velocity: math::Vector{x: 2.0, y: 2.0, z:0.0},
-        gravity: math::Vector{x: 0.0, y: -2.0, z:0.0},
+        position: Vector{x: 0.0, y: 0.0, z:0.0, w:0.0},
+        velocity: Vector{x: 2.0, y: 2.0, z:0.0, w:0.0},
+        gravity: Vector{x: 0.0, y: -2.0, z:0.0, w:0.0},
     };
 
     let mut current_time = Instant::now();
