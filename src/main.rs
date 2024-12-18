@@ -433,7 +433,7 @@ impl App {
         self.character.velocity.x = approach(self.character.velocity_goal.x, self.character.velocity.x, speed);
         self.character.velocity.y = approach(self.character.velocity_goal.y, self.character.velocity.y, speed);
 
-        self.character.position = &self.character.position + &((&self.character.velocity) * delta_time);
+        self.character.position = self.character.position + self.character.velocity * delta_time;
     }
 
     unsafe fn update_uniform_buffer(&self, image_index: usize) -> Result<()>
@@ -450,7 +450,7 @@ impl App {
 
         model = model * transformation;
 
-        let view_angle = &self.character.position - &((&self.view_angle.to_vector()) * 5.0);
+        let view_angle = self.character.position - self.view_angle.to_vector() * 5.0;
         let eye = Point3{x: view_angle.x, y: view_angle.y, z: view_angle.z};
 
         let view = Mat4::look_at_rh(

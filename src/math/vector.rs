@@ -1,9 +1,9 @@
 use std::ops::{Add, Sub, Mul, Div};
 
 
-pub fn dot_product<'a, 'b>(first: &'a Vector, second: &'b Vector) -> f32
+pub fn dot_product(lhs: Vector, rhs: Vector) -> f32
 {
-    (first.x * second.x) + (first.y * second.y) + (first.z * second.z) + (first.w * second.w)
+    (lhs.x * rhs.x) + (lhs.y * rhs.y) + (lhs.z * rhs.z) + (lhs.w * rhs.w)
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -31,16 +31,16 @@ impl Vector
         (self.x * self.x) + (self.y * self.y) + (self.z * self.z) + (self.w * self.w)
     }
 
-    pub fn normalized(&self) -> Vector
+    pub fn normalized(self) -> Vector
     {
         self / self.length()
     }
 }
 
-impl<'a> Add for &'a Vector
+impl Add for Vector
 {
     type Output = Vector;
-    fn add(self, other: &'a Vector) -> Vector
+    fn add(self, other: Vector) -> Vector
     {
         Vector
         {
@@ -52,10 +52,10 @@ impl<'a> Add for &'a Vector
     }
 }
 
-impl<'a> Sub for &'a Vector
+impl Sub for Vector
 {
     type Output = Vector;
-    fn sub(self, other: &'a Vector) -> Vector
+    fn sub(self, other: Vector) -> Vector
     {
         Vector
         {
@@ -67,7 +67,7 @@ impl<'a> Sub for &'a Vector
     }
 }
 
-impl<'a> Mul<f32> for &'a Vector
+impl Mul<f32> for Vector
 {
     type Output = Vector;
     fn mul(self, scalar: f32)-> Vector
@@ -82,7 +82,7 @@ impl<'a> Mul<f32> for &'a Vector
     }
 }
 
-impl<'a> Div<f32> for &'a Vector
+impl Div<f32> for Vector
 {
     type Output = Vector;
     fn div(self, scalar: f32)-> Vector
