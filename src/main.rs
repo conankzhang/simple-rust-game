@@ -8,6 +8,7 @@
 use anyhow::{anyhow, Result};
 use cgmath::{Deg, Point3};
 use log::*;
+use math::approach;
 use math::vector::Vector;
 use vk::{ComponentSwizzle, DeviceQueueCreateInfo, ImageView};
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -107,6 +108,7 @@ struct Character
 {
     position : Vector,
     velocity: Vector,
+    velocity_goal: Vector,
 }
 
 fn main() -> Result<()> {
@@ -146,16 +148,16 @@ fn main() -> Result<()> {
                     if event.state == ElementState::Pressed {
                         match event.physical_key {
                             PhysicalKey::Code(KeyCode::ArrowLeft) => {
-                                app.character.velocity.x = -5.0;
+                                app.character.velocity_goal.x = -10.0;
                             },
                             PhysicalKey::Code(KeyCode::ArrowRight) => {
-                                app.character.velocity.x = 5.0;
+                                app.character.velocity_goal.x = 10.0;
                             },
                             PhysicalKey::Code(KeyCode::ArrowUp) => {
-                                app.character.velocity.y = 5.0;
+                                app.character.velocity_goal.y = 10.0;
                             },
                             PhysicalKey::Code(KeyCode::ArrowDown) => {
-                                app.character.velocity.y = -5.0;
+                                app.character.velocity_goal.y = -10.0;
                             },
                             _ => {}
                         }
@@ -163,16 +165,16 @@ fn main() -> Result<()> {
                     else if event.state == ElementState::Released {
                         match event.physical_key {
                             PhysicalKey::Code(KeyCode::ArrowLeft) => {
-                                app.character.velocity.x = 0.0;
+                                app.character.velocity_goal.x = 0.0;
                             },
                             PhysicalKey::Code(KeyCode::ArrowRight) => {
-                                app.character.velocity.x = 0.0;
+                                app.character.velocity_goal.x = 0.0;
                             },
                             PhysicalKey::Code(KeyCode::ArrowUp) => {
-                                app.character.velocity.y = 0.0;
+                                app.character.velocity_goal.y = 0.0;
                             },
                             PhysicalKey::Code(KeyCode::ArrowDown) => {
-                                app.character.velocity.y = 0.0;
+                                app.character.velocity_goal.y = 0.0;
                             },
                             _ => {}
                         }
@@ -381,7 +383,7 @@ impl App {
         create_command_buffers(&device, &mut data)?;
         create_sync_objects(&device, &mut data)?;
 
-        Ok(Self{entry, instance, data, device, frame: 0, resized: false, minimized: false, start: Instant::now(), character: Character{position: Vector{x:0.0, y:0.0, z: 0.0, w:0.0}, velocity: Vector{x:0.0, y:0.0, z:0.0, w:0.0}}})
+        Ok(Self{entry, instance, data, device, frame: 0, resized: false, minimized: false, start: Instant::now(), character: Character{position: Vector{x:0.0, y:0.0, z: 0.0, w:0.0}, velocity: Vector{x:0.0, y:0.0, z:0.0, w:0.0}, velocity_goal: Vector{x:0.0, y:0.0,z:0.0,w:0.0}}})
     }
 
     unsafe fn recreate_swapchain(&mut self, window: &Window) -> Result<()> {
@@ -407,6 +409,10 @@ impl App {
 
     fn update(&mut self, delta_time : f32)
     {
+        let speed = delta_time * 80.0;
+        self.character.velocity.x = approach(self.character.velocity_goal.x, self.character.velocity.x, speed);
+        self.character.velocity.y = approach(self.character.velocity_goal.y, self.character.velocity.y, speed);
+
         self.character.position = &self.character.position + &((&self.character.velocity) * delta_time);
     }
 
