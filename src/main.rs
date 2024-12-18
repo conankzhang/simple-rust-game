@@ -5,11 +5,14 @@
     clippy::unnecessary_wraps
 )]
 
+mod math;
+use math::approach;
+use math::euler::Euler;
+use math::vector::Vector;
+
 use anyhow::{anyhow, Result};
 use cgmath::{Deg, Point3};
 use log::*;
-use math::approach;
-use math::vector::Vector;
 use vk::{ComponentSwizzle, DeviceQueueCreateInfo, ImageView};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
@@ -32,12 +35,11 @@ use vulkanalia::vk::KhrSurfaceExtension;
 use vulkanalia::vk::KhrSwapchainExtension;
 use vulkanalia::window as vk_window;
 
-use winit::dpi::LogicalSize;
+use winit::dpi::{LogicalSize, PhysicalPosition};
 use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
-mod math;
 type Mat4 = cgmath::Matrix4<f32>;
 type Vec3 = cgmath::Vector3<f32>;
 
@@ -143,6 +145,18 @@ fn main() -> Result<()> {
                         app.minimized = false;
                         app.resized = true;
                     }
+                },
+                WindowEvent::CursorMoved{device_id, position} => {
+                    let delta_x = (position.x - app.last_mouse.x) as f32;
+                    let delta_y = (position.y - app.last_mouse.y) as f32;
+
+                    let sensitivity = 0.01;
+
+                    app.view_angle.pitch += delta_y * sensitivity;
+                    app.view_angle.yaw += delta_x * sensitivity;
+                    app.view_angle.normalize();
+
+                    app.last_mouse = position;
                 },
                 WindowEvent::KeyboardInput {event, ..} => {
                     if event.state == ElementState::Pressed {
@@ -352,6 +366,8 @@ struct App{
     minimized: bool,
     start: Instant,
     character: Character,
+    view_angle: Euler,
+    last_mouse: PhysicalPosition<f64>,
 }
 
 impl App {
@@ -383,7 +399,11 @@ impl App {
         create_command_buffers(&device, &mut data)?;
         create_sync_objects(&device, &mut data)?;
 
-        Ok(Self{entry, instance, data, device, frame: 0, resized: false, minimized: false, start: Instant::now(), character: Character{position: Vector{x:0.0, y:0.0, z: 0.0, w:0.0}, velocity: Vector{x:0.0, y:0.0, z:0.0, w:0.0}, velocity_goal: Vector{x:0.0, y:0.0,z:0.0,w:0.0}}})
+        Ok(Self{entry, instance, data, device, frame: 0, resized: false, minimized: false, start: Instant::now(),
+            character: Character{position: Vector{x:0.0, y:0.0, z: 0.0, w:0.0}, velocity: Vector{x:0.0, y:0.0, z:0.0, w:0.0}, velocity_goal: Vector{x:0.0, y:0.0,z:0.0,w:0.0}},
+            view_angle: Euler{pitch: 0.0, yaw: 0.0, roll: 0.0},
+            last_mouse: PhysicalPosition{x: 0.0, y: 0.0},
+        })
     }
 
     unsafe fn recreate_swapchain(&mut self, window: &Window) -> Result<()> {
@@ -430,8 +450,11 @@ impl App {
 
         model = model * transformation;
 
+        let view_angle = &self.character.position - &((&self.view_angle.to_vector()) * 5.0);
+        let eye = Point3{x: view_angle.x, y: view_angle.y, z: view_angle.z};
+
         let view = Mat4::look_at_rh(
-            Point3{x: 0.0, y: -2.0, z: 2.0},
+            eye,
             Point3{x: 0.0, y: 0.0, z: 0.0},
             Vec3{x: 0.0, y: 0.0, z: 1.0},
         );

@@ -1,5 +1,6 @@
 use std::ops::{Add, Sub, Mul, Div};
 
+
 pub fn dot_product<'a, 'b>(first: &'a Vector, second: &'b Vector) -> f32
 {
     (first.x * second.x) + (first.y * second.y) + (first.z * second.z) + (first.w * second.w)
