@@ -6,9 +6,10 @@
 )]
 
 use anyhow::{anyhow, Result};
-use cgmath::{Deg, Point3};
+use cgmath::{vec3, Deg, Point3};
 use log::*;
 use vk::{ComponentSwizzle, DeviceQueueCreateInfo, ImageView};
+use winit::keyboard::{KeyCode, PhysicalKey};
 
 use std::collections::HashSet;
 use std::ffi::{c_void, CStr};
@@ -30,7 +31,7 @@ use vulkanalia::vk::KhrSwapchainExtension;
 use vulkanalia::window as vk_window;
 
 use winit::dpi::LogicalSize;
-use winit::event::{Event, WindowEvent};
+use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
@@ -146,6 +147,25 @@ fn main() -> Result<()> {
                     } else {
                         app.minimized = false;
                         app.resized = true;
+                    }
+                },
+                WindowEvent::KeyboardInput {event, ..} => {
+                    if event.state == ElementState::Pressed {
+                        match event.physical_key {
+                            PhysicalKey::Code(KeyCode::ArrowLeft) => {
+
+                            },
+                            PhysicalKey::Code(KeyCode::ArrowRight) => {
+
+                            },
+                            PhysicalKey::Code(KeyCode::ArrowUp) => {
+
+                            },
+                            PhysicalKey::Code(KeyCode::ArrowDown) => {
+
+                            },
+                            _ => {}
+                        }
                     }
                 },
                 WindowEvent::CloseRequested => {
@@ -384,10 +404,15 @@ impl App {
     {
         let time = self.start.elapsed().as_secs_f32();
 
-        let model = Mat4::from_axis_angle(
+        let mut model = Mat4::from_axis_angle(
             Vec3{x: 0.0, y:0.0, z:1.0},
-            Deg(90.0) * time
+            Deg(0.0)
         );
+
+        let position = vec3(0.0, 0.0, 0.0) + vec3(1.0, 0.0, 0.0) * time;
+        let transformation = Mat4::from_translation(position);
+
+        //model = model * transformation;
 
         let view = Mat4::look_at_rh(
             Point3{x: 2.0, y: 2.0, z: 2.0},
