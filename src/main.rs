@@ -13,9 +13,10 @@ use vk::{ComponentSwizzle, DeviceQueueCreateInfo, ImageView};
 
 use std::collections::HashSet;
 use std::ffi::{c_void, CStr};
+use std::mem::size_of;
+use std::result::Result::Ok;
 use std::time::Instant;
 use std::u64;
-use std::result::Result::Ok;
 
 use thiserror::Error;
 
@@ -39,11 +40,58 @@ const VALIDATION_LAYER: vk::ExtensionName = vk::ExtensionName::from_bytes(b"VK_L
 const DEVICE_EXTENSIONS: &[vk::ExtensionName] = &[vk::KHR_SWAPCHAIN_EXTENSION.name];
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
+static VERTICES: [Vertex; 3] = [
+    Vertex::new(Vec3{x: 0.0, y: -0.5, z: 0.0}, Vec3{x: 1.0, y: 0.0, z: 0.0}),
+    Vertex::new(Vec3{x: 0.5, y: 0.5, z: 0.0}, Vec3{x: 0.0, y: 1.0, z: 0.0}),
+    Vertex::new(Vec3{x: -0.5, y: 0.5, z: 0.0}, Vec3{x: 0.0, y: 0.0, z: 1.0}),
+];
+
+type Vec3 = math::Vector;
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+struct Vertex {
+    position : Vec3,
+    color: Vec3
+}
+
+impl Vertex {
+    const fn new(position: Vec3, color: Vec3) -> Self {
+        Self {position, color}
+    }
+
+    fn binding_description() -> vk::VertexInputBindingDescription {
+        vk::VertexInputBindingDescription::builder()
+            .binding(0)
+            .stride(size_of::<Vertex>() as u32)
+            .input_rate(vk::VertexInputRate::VERTEX)
+            .build()
+    }
+
+    fn attribute_descriptions() -> [vk::VertexInputAttributeDescription; 2] {
+        let position = vk::VertexInputAttributeDescription::builder()
+            .binding(0)
+            .location(0)
+            .format(vk::Format::R32G32B32_SFLOAT)
+            .offset(0)
+            .build();
+
+        let color = vk::VertexInputAttributeDescription::builder()
+            .binding(0)
+            .location(1)
+            .format(vk::Format::R32G32B32_SFLOAT)
+            .offset(size_of::<Vec3>() as u32)
+            .build();
+
+        [position, color]
+    }
+}
+
 struct Character
 {
-    position : math::Vector,
-    velocity: math::Vector,
-    gravity: math::Vector
+    position : Vec3,
+    velocity: Vec3,
+    gravity: Vec3
 }
 
 fn main() -> Result<()> {
@@ -57,9 +105,9 @@ fn main() -> Result<()> {
 
     let mut character = Character
     {
-        position: math::Vector{x: 0.0, y: 0.0},
-        velocity: math::Vector{x: 2.0, y: 2.0},
-        gravity: math::Vector{x: 0.0, y: -2.0},
+        position: math::Vector{x: 0.0, y: 0.0, z:0.0},
+        velocity: math::Vector{x: 2.0, y: 2.0, z:0.0},
+        gravity: math::Vector{x: 0.0, y: -2.0, z:0.0},
     };
 
     let mut current_time = Instant::now();
@@ -682,7 +730,12 @@ unsafe fn create_pipeline(device: &Device, data: &mut AppData) ->Result<()>
         .module(frag_shader_module)
         .name(b"main\0");
 
-    let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder();
+    let binding_descriptions = &[Vertex::binding_description()];
+    let attribute_descriptions = Vertex::attribute_descriptions();
+    let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+        .vertex_binding_descriptions(binding_descriptions)
+        .vertex_attribute_descriptions(&attribute_descriptions);
+
     let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
         .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
         .primitive_restart_enable(false);

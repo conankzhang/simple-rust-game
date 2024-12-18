@@ -2,7 +2,7 @@ use std::ops::{Add, Sub, Mul, Div};
 
 pub fn dot_product<'a, 'b>(first: &'a Vector, second: &'b Vector) -> f32
 {
-    (first.x * second.x) + (first.y * second.y)
+    (first.x * second.x) + (first.y * second.y) + (first.z * second.z)
 }
 
 pub fn approach(goal: f32, current: f32, delta_time: f32) -> f32
@@ -25,22 +25,28 @@ pub fn approach(goal: f32, current: f32, delta_time: f32) -> f32
 }
 
 
+#[derive(Copy, Clone, Debug)]
 pub struct Vector
 {
     pub x: f32,
-    pub y: f32
+    pub y: f32,
+    pub z: f32,
 }
 
 impl Vector
 {
+    const fn new(x: f32, y: f32, z:f32) -> Self {
+        Self{x, y, z}
+    }
+
     pub fn length(&self) -> f32
     {
-        ((self.x * self.x) + (self.y * self.y)).sqrt()
+        ((self.x * self.x) + (self.y * self.y) + (self.z * self.z)).sqrt()
     }
 
     pub fn length_squared(&self) -> f32
     {
-        (self.x * self.x) + (self.y * self.y)
+        (self.x * self.x) + (self.y * self.y) + (self.z * self.z)
     }
 
     pub fn normalized(&self) -> Vector
@@ -57,7 +63,8 @@ impl<'a> Add for &'a Vector
         Vector
         {
             x: self.x + other.x,
-            y: self.y + other.y
+            y: self.y + other.y,
+            z: self.z + other.z
         }
     }
 }
@@ -70,7 +77,8 @@ impl<'a> Sub for &'a Vector
         Vector
         {
             x: self.x - other.x,
-            y: self.y - other.y
+            y: self.y - other.y,
+            z: self.z - other.z,
         }
     }
 }
@@ -83,7 +91,8 @@ impl<'a> Mul<f32> for &'a Vector
         Vector
         {
             x: self.x * scalar,
-            y: self.y * scalar
+            y: self.y * scalar,
+            z: self.z * scalar
         }
     }
 }
@@ -96,7 +105,8 @@ impl<'a> Div<f32> for &'a Vector
         Vector
         {
             x: self.x / scalar,
-            y: self.y / scalar
+            y: self.y / scalar,
+            z: self.z / scalar
         }
     }
 }
