@@ -1,9 +1,20 @@
-use std::ops::{Add, Sub, Mul, Div};
+use std::ops::{Add, Div, DivAssign, Mul, Sub};
 
 
 pub fn dot_product(lhs: Vector, rhs: Vector) -> f32
 {
     (lhs.x * rhs.x) + (lhs.y * rhs.y) + (lhs.z * rhs.z) + (lhs.w * rhs.w)
+}
+
+pub fn cross_product(lhs: Vector, rhs: Vector) -> Vector
+{
+    Vector
+    {
+        x: (lhs.y * rhs.z) - (lhs.z * rhs.y),
+        y: (lhs.z * rhs.x) + (lhs.x * rhs.z),
+        z: (lhs.x * rhs.y) + (lhs.y * rhs.x),
+        w: 0.0
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -34,6 +45,11 @@ impl Vector
     pub fn normalized(self) -> Vector
     {
         self / self.length()
+    }
+
+    pub fn normalize(&mut self)
+    {
+        *self /= self.length()
     }
 }
 
@@ -94,5 +110,15 @@ impl Div<f32> for Vector
             z: self.z / scalar,
             w: self.w / scalar,
         }
+    }
+}
+
+impl DivAssign<f32> for Vector
+{
+    fn div_assign(&mut self, scalar: f32) {
+        self.x /= scalar;
+        self.y /= scalar;
+        self.z /= scalar;
+        self.w /= scalar;
     }
 }

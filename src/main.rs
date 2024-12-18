@@ -12,7 +12,7 @@ use anyhow::{Result};
 
 use math::approach;
 use math::euler::Euler;
-use math::vector::Vector;
+use math::vector::{cross_product, Vector};
 
 use renderer::{Renderer, MAX_FRAMES_IN_FLIGHT};
 
@@ -90,7 +90,8 @@ struct Character
 {
     position : Vector,
     velocity: Vector,
-    velocity_goal: Vector,
+    velocity_input: Vector,
+    velocity_input_goal: Vector,
     view_angle: Euler,
 }
 
@@ -116,7 +117,8 @@ impl Game {
             character: Character{
                 position: Vector{x:0.0, y:0.0, z: 0.0, w:0.0},
                 velocity: Vector{x:0.0, y:0.0, z:0.0, w:0.0},
-                velocity_goal: Vector{x:0.0, y:0.0,z:0.0,w:0.0},
+                velocity_input: Vector{x:0.0, y:0.0, z:0.0, w:0.0},
+                velocity_input_goal: Vector{x:0.0, y:0.0,z:0.0,w:0.0},
                 view_angle: Euler{pitch: 0.0, yaw: 0.0, roll: 0.0},
             },
             last_mouse: PhysicalPosition{x: 0.0, y: 0.0},
@@ -126,10 +128,19 @@ impl Game {
     fn update(&mut self, delta_time : f32)
     {
         let speed = delta_time * 80.0;
-        self.character.velocity.x = approach(self.character.velocity_goal.x, self.character.velocity.x, speed);
-        self.character.velocity.y = approach(self.character.velocity_goal.y, self.character.velocity.y, speed);
+        self.character.velocity_input.x = approach(self.character.velocity_input_goal.x, self.character.velocity_input.x, speed);
+        self.character.velocity_input.y = approach(self.character.velocity_input_goal.y, self.character.velocity_input.y, speed);
 
-        self.character.position = self.character.position + self.character.velocity * delta_time;
+        let mut forward = self.character.view_angle.to_vector();
+        forward.z = 0.0;
+        forward.normalize();
+
+        let up = Vector{x: 0.0, y: 0.0, z: 1.0, w: 0.0};
+        let mut right = cross_product(forward, up);
+        right.normalize();
+
+        self.character.velocity = forward * self.character.velocity_input.x + right * self.character.velocity_input.y;
+        self.character.position = self.character.position + self.character.velocity_input * delta_time;
     }
 
     fn handle_cursor_movement(&mut self, position: PhysicalPosition<f64>)
@@ -151,16 +162,16 @@ impl Game {
         if event.state == ElementState::Pressed {
             match event.physical_key {
                 PhysicalKey::Code(KeyCode::ArrowLeft) => {
-                    self.character.velocity_goal.x = -10.0;
+                    self.character.velocity_input_goal.x = -10.0;
                 },
                 PhysicalKey::Code(KeyCode::ArrowRight) => {
-                    self.character.velocity_goal.x = 10.0;
+                    self.character.velocity_input_goal.x = 10.0;
                 },
                 PhysicalKey::Code(KeyCode::ArrowUp) => {
-                    self.character.velocity_goal.y = 10.0;
+                    self.character.velocity_input_goal.y = 10.0;
                 },
                 PhysicalKey::Code(KeyCode::ArrowDown) => {
-                    self.character.velocity_goal.y = -10.0;
+                    self.character.velocity_input_goal.y = -10.0;
                 },
                 _ => {}
             }
@@ -168,16 +179,16 @@ impl Game {
         else if event.state == ElementState::Released {
             match event.physical_key {
                 PhysicalKey::Code(KeyCode::ArrowLeft) => {
-                    self.character.velocity_goal.x = 0.0;
+                    self.character.velocity_input_goal.x = 0.0;
                 },
                 PhysicalKey::Code(KeyCode::ArrowRight) => {
-                    self.character.velocity_goal.x = 0.0;
+                    self.character.velocity_input_goal.x = 0.0;
                 },
                 PhysicalKey::Code(KeyCode::ArrowUp) => {
-                    self.character.velocity_goal.y = 0.0;
+                    self.character.velocity_input_goal.y = 0.0;
                 },
                 PhysicalKey::Code(KeyCode::ArrowDown) => {
-                    self.character.velocity_goal.y = 0.0;
+                    self.character.velocity_input_goal.y = 0.0;
                 },
                 _ => {}
             }
