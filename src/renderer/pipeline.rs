@@ -65,7 +65,13 @@ pub unsafe fn create_pipeline(device: &Device, data: &mut RenderData) ->Result<(
 
     let attachment = vk::PipelineColorBlendAttachmentState::builder()
         .color_write_mask(vk::ColorComponentFlags::all())
-        .blend_enable(false);
+        .blend_enable(true)
+        .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+        .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+        .color_blend_op(vk::BlendOp::ADD)
+        .src_alpha_blend_factor(vk::BlendFactor::ONE)
+        .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
+        .alpha_blend_op(vk::BlendOp::ADD);
 
     let attachments = &[attachment];
     let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
@@ -83,9 +89,22 @@ pub unsafe fn create_pipeline(device: &Device, data: &mut RenderData) ->Result<(
         .max_depth_bounds(1.0)
         .stencil_test_enable(false);
 
+    let vert_push_constant_range = vk::PushConstantRange::builder()
+        .stage_flags(vk::ShaderStageFlags::VERTEX)
+        .offset(0)
+        .size(64);
+
+    let frag_push_constant_range = vk::PushConstantRange::builder()
+        .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+        .offset(64)
+        .size(4);
+
     let set_layouts = &[data.descriptor_set_layout];
+    let push_constant_ranges = &[vert_push_constant_range, frag_push_constant_range];
     let layout_info = vk::PipelineLayoutCreateInfo::builder()
-        .set_layouts(set_layouts);
+        .set_layouts(set_layouts)
+        .push_constant_ranges(push_constant_ranges);
+
     data.pipeline_layout = device.create_pipeline_layout(&layout_info, None)?;
 
     let stages = &[vert_stage, frag_stage];
@@ -139,8 +158,6 @@ pub unsafe fn create_render_pass(instance: &Instance, device: &Device, data: &mu
     let color_resolve_attachment_ref = vk::AttachmentReference::builder()
         .attachment(2)
         .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
-
-
 
     let color_attachments = &[color_attachment_ref];
     let resolve_attachments = &[color_resolve_attachment_ref];

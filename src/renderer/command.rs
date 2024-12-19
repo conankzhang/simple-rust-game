@@ -1,7 +1,8 @@
 use anyhow::Result;
+use cgmath::Deg;
 use vulkanalia::{vk::{self, DeviceV1_0, Handle, HasBuilder}, Device, Instance};
 
-use super::{device::QueueFamilyIndices, RenderData};
+use super::{descriptor::Mat4, device::QueueFamilyIndices, RenderData, Vec3};
 
 pub unsafe fn create_command_pool(instance: &Instance, device: &Device, data: &mut RenderData) ->Result<()>
 {
@@ -24,6 +25,24 @@ pub unsafe fn create_command_buffers(device: &Device, data: &mut RenderData) ->R
         .command_buffer_count(data.framebuffers.len() as u32);
 
     data.command_buffers = device.allocate_command_buffers(&allocate_info)?;
+
+    let model = Mat4::from_axis_angle(
+        Vec3{x: 0.0, y:0.0, z:1.0},
+        Deg(0.0)
+    );
+
+    /*
+    let translation = Vec3{x: character.position.x, y: character.position.y, z: character.position.z};
+    let position = Point3{x: character.position.x, y: character.position.y, z: character.position.z};
+    let transformation = Mat4::from_translation(translation);
+
+    model = model * transformation;
+    */
+
+    let model_bytes = std::slice::from_raw_parts(
+        &model as *const Mat4 as *const u8,
+        size_of::<Mat4>()
+    );
 
     for(i, command_buffer) in data.command_buffers.iter().enumerate() {
         let inheritance = vk::CommandBufferInheritanceInfo::builder();
@@ -57,12 +76,18 @@ pub unsafe fn create_command_buffers(device: &Device, data: &mut RenderData) ->R
             .framebuffer(data.framebuffers[i])
             .render_area(render_area)
             .clear_values(clear_values);
+
         device.cmd_begin_render_pass(*command_buffer, &info, vk::SubpassContents::INLINE);
+
         device.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.pipeline);
         device.cmd_bind_vertex_buffers(*command_buffer, 0, &[data.vertex_buffer], &[0]);
         device.cmd_bind_index_buffer(*command_buffer, data.index_buffer, 0, vk::IndexType::UINT32);
         device.cmd_bind_descriptor_sets(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.pipeline_layout, 0, &[data.descriptor_sets[i]], &[]);
+
+        device.cmd_push_constants(*command_buffer, data.pipeline_layout, vk::ShaderStageFlags::VERTEX, 0, model_bytes,);
+        device.cmd_push_constants(*command_buffer, data.pipeline_layout, vk::ShaderStageFlags::FRAGMENT, 64, &0.25f32.to_ne_bytes()[..],);
         device.cmd_draw_indexed(*command_buffer, data.indices.len() as u32, 1, 0, 0,0);
+
         device.cmd_end_render_pass(*command_buffer);
         device.end_command_buffer(*command_buffer)?;
     }

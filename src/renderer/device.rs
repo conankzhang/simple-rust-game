@@ -61,6 +61,7 @@ pub unsafe fn pick_physical_device(instance: &Instance, data: &mut RenderData) -
         else {
             info!("Selected physical device (`{}`)", properties.device_name);
             data.physical_device = physical_device;
+            data.msaa_samples = get_max_msaa_samples(instance, data);
             return Ok(())
         }
     }

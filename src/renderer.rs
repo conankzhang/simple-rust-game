@@ -149,17 +149,6 @@ impl Renderer {
 
     unsafe fn update_uniform_buffer(&self, character: &Character, image_index: usize) -> Result<()>
     {
-        let mut model = Mat4::from_axis_angle(
-            Vec3{x: 0.0, y:0.0, z:1.0},
-            Deg(0.0)
-        );
-
-        let translation = Vec3{x: character.position.x, y: character.position.y, z: character.position.z};
-        let position = Point3{x: character.position.x, y: character.position.y, z: character.position.z};
-        let transformation = Mat4::from_translation(translation);
-
-        model = model * transformation;
-
         let view_angle = character.position - character.view_angle.to_vector() * 1.0;
         let eye = Point3{x: view_angle.x, y: view_angle.y, z: view_angle.z};
 
@@ -187,7 +176,7 @@ impl Renderer {
              0.1,
               1000.0);
 
-        let ubo = UniformBufferObject{model, view, projection};
+        let ubo = UniformBufferObject{view, projection};
 
         let memory = self.device.map_memory(
             self.data.uniform_buffers_memory[image_index],
