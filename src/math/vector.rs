@@ -21,6 +21,13 @@ pub struct Vector2
     pub y: f32,
 }
 
+impl Vector2
+{
+    pub const fn new(x: f32, y: f32) -> Self {
+        Self{x, y}
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct Vector3
 {
@@ -40,7 +47,7 @@ pub struct Vector4
 
 impl Vector3
 {
-    const fn new(x: f32, y: f32, z:f32) -> Self {
+    pub const fn new(x: f32, y: f32, z:f32) -> Self {
         Self{x, y, z}
     }
 

@@ -161,3 +161,26 @@ pub unsafe fn get_memory_type_index(instance: &Instance, data: &RenderData, prop
         .ok_or_else(|| anyhow!("Failed to find suitable memory type."))
 }
 
+pub unsafe fn get_supported_format(instance: &Instance, data: &RenderData, candidates: &[vk::Format], tiling: vk::ImageTiling, features: vk::FormatFeatureFlags) ->Result<vk::Format>
+{
+    candidates
+        .iter()
+        .cloned()
+        .find(|f| {
+            let properties = instance.get_physical_device_format_properties(data.physical_device, *f);
+
+            match tiling {
+                vk::ImageTiling::LINEAR => properties.linear_tiling_features.contains(features),
+                vk::ImageTiling::OPTIMAL => properties.optimal_tiling_features.contains(features),
+                _ => false
+            }
+
+        }).ok_or_else(|| anyhow!("Failed to find supported format!"))
+}
+
+pub unsafe fn get_depth_format(instance: &Instance, data: &RenderData) ->Result<vk::Format>
+{
+    let candidates = &[vk::Format::D32_SFLOAT, vk::Format::D32_SFLOAT_S8_UINT, vk::Format::D24_UNORM_S8_UINT,];
+    get_supported_format(instance, data, candidates, vk::ImageTiling::OPTIMAL, vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT)
+}
+

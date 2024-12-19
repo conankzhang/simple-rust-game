@@ -4,8 +4,8 @@ use cgmath::{Deg, Point3};
 use command::{create_command_buffers, create_command_pool};
 use descriptor::{create_descriptor_pool, create_descriptor_set_layout, create_descriptor_sets, create_uniform_buffers, Mat4, UniformBufferObject};
 use device::{create_logical_device, pick_physical_device};
-use image::{create_texture_image, create_texture_image_view, create_texture_sampler};
-use instance::{create_instance, VALIDATION_ENABLED};
+use image::{create_depth_objects, create_texture_image, create_texture_image_view, create_texture_sampler};
+use instance::{create_instance, create_sync_objects, VALIDATION_ENABLED};
 use pipeline::{create_pipeline, create_render_pass};
 use std::mem::size_of;
 use std::ptr::copy_nonoverlapping as memcpy;
@@ -39,14 +39,14 @@ type Vec3 = cgmath::Vector3<f32>;
 pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
 static VERTICES: [Vertex; 8] = [
-    Vertex::new(Vector3{x: -0.5, y: -0.5, z: 0.0}, Vector3{x: 1.0, y: 0.0, z: 0.0}, Vector2{x: 1.0, y:0.0}),
-    Vertex::new(Vector3{x: 0.5, y: -0.5, z: 0.0}, Vector3{x: 0.0, y: 1.0, z: 0.0}, Vector2{x: 0.0, y:0.0}),
-    Vertex::new(Vector3{x: 0.5, y: 0.5, z: 0.0}, Vector3{x: 0.0, y: 0.0, z: 1.0}, Vector2{x: 0.0, y:1.0}),
-    Vertex::new(Vector3{x: -0.5, y: 0.5, z: 0.0}, Vector3{x: 1.0, y: 1.0, z: 1.0}, Vector2{x:1.0, y:1.0}),
-    Vertex::new(Vector3{x: -0.5, y: -0.5, z: -0.5}, Vector3{x: 1.0, y: 0.0, z: 0.0}, Vector2{x:1.0, y:0.0}),
-    Vertex::new(Vector3{x: 0.5, y: -0.5, z: -0.5}, Vector3{x: 0.0, y: 1.0, z: 0.0}, Vector2{x:0.0, y:0.0}),
-    Vertex::new(Vector3{x: 0.5, y: 0.5, z: -0.5}, Vector3{x: 0.0, y: 0.0, z: 1.0}, Vector2{x:0.0, y:1.0}),
-    Vertex::new(Vector3{x: -0.5, y: 0.5, z: -0.5}, Vector3{x: 1.0, y: 1.0, z: 1.0}, Vector2{x:1.0, y:1.0}),
+    Vertex::new(Vector3::new(-0.5, -0.5, 0.0), Vector3::new( 1.0, 0.0, 0.0), Vector2::new(1.0, 0.0)),
+    Vertex::new(Vector3::new( 0.5, -0.5, 0.0), Vector3::new(0.0, 1.0, 0.0), Vector2::new(0.0, 0.0)),
+    Vertex::new(Vector3::new(0.5, 0.5, 0.0), Vector3::new(0.0, 0.0, 1.0), Vector2::new(0.0, 1.0)),
+    Vertex::new(Vector3::new(-0.5, 0.5, 0.0), Vector3::new(1.0, 1.0, 1.0), Vector2::new(1.0,1.0)),
+    Vertex::new(Vector3::new(-0.5, -0.5, -0.5), Vector3::new(1.0, 0.0, 0.0), Vector2::new(1.0,0.0)),
+    Vertex::new(Vector3::new(0.5, -0.5, -0.5), Vector3::new(0.0, 1.0, 0.0), Vector2::new(0.0, 0.0)),
+    Vertex::new(Vector3::new(0.5, 0.5, -0.5), Vector3::new(0.0, 0.0, 1.0), Vector2::new(0.0, 1.0)),
+    Vertex::new(Vector3::new(-0.5, 0.5, -0.5), Vector3::new(1.0, 1.0, 1.0), Vector2::new(1.0, 1.0)),
 ];
 
 pub const INDICES: &[u32] = &[
@@ -76,6 +76,7 @@ struct RenderData {
     swapchain_images: Vec<vk::Image>,
     swapchain_image_views: Vec<ImageView>,
 
+    // Pipeline
     render_pass: vk::RenderPass,
     descriptor_set_layout: vk::DescriptorSetLayout,
     pipeline_layout: vk::PipelineLayout,
@@ -90,19 +91,28 @@ struct RenderData {
     in_flight_fences: Vec<vk::Fence>,
     images_in_flight: Vec<vk::Fence>,
 
+    // Vertex Buffers
     vertex_buffer: vk::Buffer,
     vertex_buffer_memory: vk::DeviceMemory,
     index_buffer: vk::Buffer,
     index_buffer_memory: vk::DeviceMemory,
+
+    // Uniform Buffers
     uniform_buffers: Vec<vk::Buffer>,
     uniform_buffers_memory: Vec<vk::DeviceMemory>,
     descriptor_pool : vk::DescriptorPool,
     descriptor_sets : Vec<vk::DescriptorSet>,
 
+    // Texture Sampling
     texture_image : vk::Image,
     texture_image_memory: vk::DeviceMemory,
     texture_image_view: vk::ImageView,
     texture_sampler: vk::Sampler,
+
+    // Depth Buffering
+    depth_image: vk::Image,
+    depth_image_memory: vk::DeviceMemory,
+    depth_image_view: vk::ImageView,
 }
 
 impl Renderer {
@@ -123,6 +133,7 @@ impl Renderer {
         create_descriptor_set_layout(&device, &mut data)?;
         create_pipeline(&device, &mut data)?;
 
+        create_depth_objects(&instance, &device, &mut data)?;
         create_framebuffers(&device, &mut data)?;
         create_command_pool(&instance, &device, &mut data)?;
         create_texture_image(&instance, &device, &mut data)?;
@@ -163,13 +174,23 @@ impl Renderer {
             Vec3{x: 0.0, y: 0.0, z: 1.0},
         );
 
-        let mut projection = cgmath::perspective(
+        /*
+            cgmath uses OpenGL range of -1.0 - 1.0 while Vulkan uses 0.0 - 1.0
+            We also need to flip the Y-axis due to OpenGL coordinates
+            Lastly, this matrix is transposed because cgmath constructs in column-major order
+         */
+        let correction = Mat4::new(
+            1.0, 0.0, 0.0, 0.0,
+            0.0, -1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0/2.0, 0.0,
+            0.0, 0.0, 1.0/2.0, 1.0,
+        );
+
+        let projection = correction * cgmath::perspective(
             Deg(90.0),
             self.data.swapchain_extent.width as f32 / self.data.swapchain_extent.height as f32,
              0.1,
               1000.0);
-
-        projection[1][1] *= -1.0;
 
         let ubo = UniformBufferObject{model, view, projection};
 
@@ -258,6 +279,7 @@ impl Renderer {
 
         create_render_pass(&self.instance, &self.device, &mut self.data)?;
         create_pipeline(&self.device, &mut self.data)?;
+        create_depth_objects(&self.instance, &self.device, &mut self.data)?;
 
         create_framebuffers(&self.device, &mut self.data)?;
         create_uniform_buffers(&self.instance, &self.device, &mut self.data)?;
@@ -271,6 +293,10 @@ impl Renderer {
     }
 
     unsafe fn destroy_swapchain(&mut self) {
+        self.device.destroy_image_view(self.data.depth_image_view, None);
+        self.device.free_memory(self.data.depth_image_memory, None);
+        self.device.destroy_image(self.data.depth_image, None);
+
         self.device.destroy_descriptor_pool(self.data.descriptor_pool, None);
         self.data.uniform_buffers
             .iter()
@@ -334,24 +360,4 @@ impl Renderer {
 
         self.instance.destroy_instance(None);
     }
-}
-
-unsafe fn create_sync_objects(device: &Device, data: &mut RenderData) ->Result<()>
-{
-    let semaphore_info = vk::SemaphoreCreateInfo::builder();
-    let fence_info = vk::FenceCreateInfo::builder()
-        .flags(vk::FenceCreateFlags::SIGNALED);
-
-    for _ in 0..MAX_FRAMES_IN_FLIGHT {
-        data.image_available_semaphores.push(device.create_semaphore(&semaphore_info, None)?);
-        data.render_finished_semaphores.push(device.create_semaphore(&semaphore_info, None)?);
-        data.in_flight_fences.push(device.create_fence(&fence_info, None)?);
-    }
-
-    data.images_in_flight = data.swapchain_images
-        .iter()
-        .map(|_| vk::Fence::null())
-        .collect();
-
-    Ok(())
 }

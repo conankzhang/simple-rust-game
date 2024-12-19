@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use std::ptr::copy_nonoverlapping as memcpy;
 use vulkanalia::{vk::{self, DeviceV1_0, HasBuilder}, Device, Instance};
 
-use super::{buffer::create_buffer, command::{begin_single_time_commands, end_single_time_commands}, device::get_memory_type_index, RenderData};
+use super::{buffer::create_buffer, command::{begin_single_time_commands, end_single_time_commands}, device::{get_depth_format, get_memory_type_index}, RenderData};
 
 pub unsafe fn create_texture_image(instance: &Instance, device: &Device, data: &mut RenderData) -> Result<()>
 {
@@ -205,16 +205,16 @@ pub unsafe fn copy_buffer_to_image(device: &Device, data: &RenderData, buffer: v
 
 pub unsafe fn create_texture_image_view(device: &Device, data: &mut RenderData) -> Result<()>
 {
-    data.texture_image_view = create_image_view(device, data.texture_image, vk::Format::R8G8B8A8_SRGB)?;
+    data.texture_image_view = create_image_view(device, data.texture_image, vk::Format::R8G8B8A8_SRGB, vk::ImageAspectFlags::COLOR)?;
 
     Ok(())
 
 }
 
-pub unsafe fn create_image_view(device: &Device, image: vk::Image, format: vk::Format) -> Result<vk::ImageView>
+pub unsafe fn create_image_view(device: &Device, image: vk::Image, format: vk::Format, aspects: vk::ImageAspectFlags) -> Result<vk::ImageView>
 {
     let subresource_range = vk::ImageSubresourceRange::builder()
-        .aspect_mask(vk::ImageAspectFlags::COLOR)
+        .aspect_mask(aspects)
         .base_mip_level(0)
         .level_count(1)
         .base_array_layer(0)
@@ -249,6 +249,29 @@ pub unsafe fn create_texture_sampler(device: &Device, data: &mut RenderData) -> 
         .max_lod(0.0);
 
     data.texture_sampler = device.create_sampler(&info, None)?;
+
+    Ok(())
+}
+
+pub unsafe fn create_depth_objects(instance: &Instance, device: &Device, data: &mut RenderData) ->Result<()>
+{
+    let format = get_depth_format(instance, data)?;
+
+    let (depth_image, depth_image_memory) = create_image(
+        instance,
+        device,
+        data,
+        data.swapchain_extent.width,
+        data.swapchain_extent.height,
+        format, vk::ImageTiling::OPTIMAL,
+        vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+         vk::MemoryPropertyFlags::DEVICE_LOCAL
+    )?;
+
+    data.depth_image = depth_image;
+    data.depth_image_memory = depth_image_memory;
+
+    data.depth_image_view = create_image_view(device, data.depth_image, format, vk::ImageAspectFlags::DEPTH)?;
 
     Ok(())
 }
