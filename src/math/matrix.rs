@@ -1,10 +1,10 @@
-use super::vector::Vector;
+use super::vector::Vector3;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Matrix
 {
-    pub x: Vector,
-    pub y: Vector,
-    pub z: Vector,
-    pub w: Vector,
+    pub x: Vector3,
+    pub y: Vector3,
+    pub z: Vector3,
+    pub w: Vector3,
 }

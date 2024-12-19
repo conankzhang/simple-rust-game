@@ -1,24 +1,36 @@
 use std::ops::{Add, Div, DivAssign, Mul, Sub};
 
-
-pub fn dot_product(lhs: Vector, rhs: Vector) -> f32
+pub fn dot_product(lhs: Vector3, rhs: Vector3) -> f32
 {
-    (lhs.x * rhs.x) + (lhs.y * rhs.y) + (lhs.z * rhs.z) + (lhs.w * rhs.w)
+    (lhs.x * rhs.x) + (lhs.y * rhs.y) + (lhs.z * rhs.z)
 }
 
-pub fn cross_product(lhs: Vector, rhs: Vector) -> Vector
+pub fn cross_product(lhs: Vector3, rhs: Vector3) -> Vector3
 {
-    Vector
+    Vector3
     {
         x: (lhs.y * rhs.z) - (lhs.z * rhs.y),
         y: (lhs.z * rhs.x) + (lhs.x * rhs.z),
         z: (lhs.x * rhs.y) + (lhs.y * rhs.x),
-        w: 0.0
     }
+}
+#[derive(Copy, Clone, Debug)]
+pub struct Vector2
+{
+    pub x: f32,
+    pub y: f32,
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Vector
+pub struct Vector3
+{
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Vector4
 {
     pub x: f32,
     pub y: f32,
@@ -26,23 +38,23 @@ pub struct Vector
     pub w: f32,
 }
 
-impl Vector
+impl Vector3
 {
-    const fn new(x: f32, y: f32, z:f32, w:f32) -> Self {
-        Self{x, y, z, w}
+    const fn new(x: f32, y: f32, z:f32) -> Self {
+        Self{x, y, z}
     }
 
     pub fn length(&self) -> f32
     {
-        ((self.x * self.x) + (self.y * self.y) + (self.z * self.z) + (self.w * self.w)).sqrt()
+        ((self.x * self.x) + (self.y * self.y) + (self.z * self.z)).sqrt()
     }
 
     pub fn length_squared(&self) -> f32
     {
-        (self.x * self.x) + (self.y * self.y) + (self.z * self.z) + (self.w * self.w)
+        (self.x * self.x) + (self.y * self.y) + (self.z * self.z)
     }
 
-    pub fn normalized(self) -> Vector
+    pub fn normalized(self) -> Vector3
     {
         self / self.length()
     }
@@ -53,72 +65,67 @@ impl Vector
     }
 }
 
-impl Add for Vector
+impl Add for Vector3
 {
-    type Output = Vector;
-    fn add(self, other: Vector) -> Vector
+    type Output = Vector3;
+    fn add(self, other: Vector3) -> Vector3
     {
-        Vector
+        Vector3
         {
             x: self.x + other.x,
             y: self.y + other.y,
             z: self.z + other.z,
-            w: self.w * other.w,
         }
     }
 }
 
-impl Sub for Vector
+impl Sub for Vector3
 {
-    type Output = Vector;
-    fn sub(self, other: Vector) -> Vector
+    type Output = Vector3;
+    fn sub(self, other: Vector3) -> Vector3
     {
-        Vector
+        Vector3
         {
             x: self.x - other.x,
             y: self.y - other.y,
             z: self.z - other.z,
-            w: self.w - other.w,
         }
     }
 }
 
-impl Mul<f32> for Vector
+impl Mul<f32> for Vector3
 {
-    type Output = Vector;
-    fn mul(self, scalar: f32)-> Vector
+    type Output = Vector3;
+    fn mul(self, scalar: f32)-> Vector3
     {
-        Vector
+        Vector3
         {
             x: self.x * scalar,
             y: self.y * scalar,
             z: self.z * scalar,
-            w: self.w * scalar,
         }
     }
 }
 
-impl Div<f32> for Vector
+impl Div<f32> for Vector3
 {
-    type Output = Vector;
-    fn div(self, scalar: f32)-> Vector
+    type Output = Vector3;
+    fn div(self, scalar: f32)-> Vector3
     {
-        Vector
+        Vector3
         {
             x: self.x / scalar,
             y: self.y / scalar,
             z: self.z / scalar,
-            w: self.w / scalar,
         }
     }
 }
 
-impl DivAssign<f32> for Vector
+impl DivAssign<f32> for Vector3
 {
     fn div_assign(&mut self, scalar: f32) {
         self.x /= scalar;
         self.y /= scalar;
         self.z /= scalar;
-        self.w /= scalar;
     }
 }

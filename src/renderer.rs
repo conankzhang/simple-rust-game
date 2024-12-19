@@ -21,7 +21,7 @@ use vulkanalia::vk::KhrSurfaceExtension;
 use vulkanalia::vk::KhrSwapchainExtension;
 use winit::window::Window;
 
-use crate::math::vector::Vector;
+use crate::math::vector::{Vector2, Vector3};
 use crate::Character;
 
 mod buffer;
@@ -39,14 +39,14 @@ type Vec3 = cgmath::Vector3<f32>;
 pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
 static VERTICES: [Vertex; 8] = [
-    Vertex::new(Vector{x: -0.5, y: -0.5, z: 0.0, w: 0.0}, Vector{x: 1.0, y: 0.0, z: 0.0, w: 0.0}),
-    Vertex::new(Vector{x: 0.5, y: -0.5, z: 0.0, w: 0.0}, Vector{x: 0.0, y: 1.0, z: 0.0, w: 0.0}),
-    Vertex::new(Vector{x: 0.5, y: 0.5, z: 0.0, w: 0.0}, Vector{x: 0.0, y: 0.0, z: 1.0, w: 0.0}),
-    Vertex::new(Vector{x: -0.5, y: 0.5, z: 0.0, w: 0.0}, Vector{x: 1.0, y: 1.0, z: 1.0, w: 0.0}),
-    Vertex::new(Vector{x: -0.5, y: -0.5, z: -0.5, w: 0.0}, Vector{x: 1.0, y: 0.0, z: 0.0, w: 0.0}),
-    Vertex::new(Vector{x: 0.5, y: -0.5, z: -0.5, w: 0.0}, Vector{x: 0.0, y: 1.0, z: 0.0, w: 0.0}),
-    Vertex::new(Vector{x: 0.5, y: 0.5, z: -0.5, w: 0.0}, Vector{x: 0.0, y: 0.0, z: 1.0, w: 0.0}),
-    Vertex::new(Vector{x: -0.5, y: 0.5, z: -0.5, w: 0.0}, Vector{x: 1.0, y: 1.0, z: 1.0, w: 0.0}),
+    Vertex::new(Vector3{x: -0.5, y: -0.5, z: 0.0}, Vector3{x: 1.0, y: 0.0, z: 0.0}, Vector2{x: 1.0, y:0.0}),
+    Vertex::new(Vector3{x: 0.5, y: -0.5, z: 0.0}, Vector3{x: 0.0, y: 1.0, z: 0.0}, Vector2{x: 0.0, y:0.0}),
+    Vertex::new(Vector3{x: 0.5, y: 0.5, z: 0.0}, Vector3{x: 0.0, y: 0.0, z: 1.0}, Vector2{x: 0.0, y:1.0}),
+    Vertex::new(Vector3{x: -0.5, y: 0.5, z: 0.0}, Vector3{x: 1.0, y: 1.0, z: 1.0}, Vector2{x:1.0, y:1.0}),
+    Vertex::new(Vector3{x: -0.5, y: -0.5, z: -0.5}, Vector3{x: 1.0, y: 0.0, z: 0.0}, Vector2{x:1.0, y:0.0}),
+    Vertex::new(Vector3{x: 0.5, y: -0.5, z: -0.5}, Vector3{x: 0.0, y: 1.0, z: 0.0}, Vector2{x:0.0, y:0.0}),
+    Vertex::new(Vector3{x: 0.5, y: 0.5, z: -0.5}, Vector3{x: 0.0, y: 0.0, z: 1.0}, Vector2{x:0.0, y:1.0}),
+    Vertex::new(Vector3{x: -0.5, y: 0.5, z: -0.5}, Vector3{x: 1.0, y: 1.0, z: 1.0}, Vector2{x:1.0, y:1.0}),
 ];
 
 pub const INDICES: &[u32] = &[

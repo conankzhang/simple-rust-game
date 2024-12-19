@@ -1,4 +1,4 @@
-use super::vector::Vector;
+use super::vector::Vector3;
 
 #[derive(Clone, Debug)]
 pub struct Euler
@@ -9,14 +9,13 @@ pub struct Euler
 }
 
 impl Euler {
-    pub fn to_vector(&self) -> Vector
+    pub fn to_vector(&self) -> Vector3
     {
         let pitch_cos = self.pitch.cos();
-        Vector {
+        Vector3 {
             x: self.yaw.cos() * pitch_cos,
             y: self.yaw.sin() * pitch_cos,
             z: self.pitch.sin(),
-            w:0.0
         }
     }
 

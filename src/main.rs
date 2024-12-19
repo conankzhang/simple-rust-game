@@ -12,7 +12,7 @@ use anyhow::{Result};
 
 use math::approach;
 use math::euler::Euler;
-use math::vector::{cross_product, Vector};
+use math::vector::{cross_product, Vector3};
 
 use renderer::{Renderer, MAX_FRAMES_IN_FLIGHT};
 
@@ -92,10 +92,10 @@ fn main() -> Result<()> {
 #[derive(Clone, Debug)]
 struct Character
 {
-    position : Vector,
-    velocity: Vector,
-    velocity_input: Vector,
-    velocity_input_goal: Vector,
+    position : Vector3,
+    velocity: Vector3,
+    velocity_input: Vector3,
+    velocity_input_goal: Vector3,
     view_angle: Euler,
 }
 
@@ -121,10 +121,10 @@ impl Game {
             shut_down_requested: false,
             start: Instant::now(),
             character: Character{
-                position: Vector{x:0.0, y:0.0, z: 0.0, w:0.0},
-                velocity: Vector{x:0.0, y:0.0, z:0.0, w:0.0},
-                velocity_input: Vector{x:0.0, y:0.0, z:0.0, w:0.0},
-                velocity_input_goal: Vector{x:0.0, y:0.0,z:0.0,w:0.0},
+                position: Vector3{x:0.0, y:0.0, z: 0.0},
+                velocity: Vector3{x:0.0, y:0.0, z:0.0},
+                velocity_input: Vector3{x:0.0, y:0.0, z:0.0},
+                velocity_input_goal: Vector3{x:0.0, y:0.0,z:0.0},
                 view_angle: Euler{pitch: 0.0, yaw: 0.0, roll: 0.0},
             },
             last_mouse: PhysicalPosition{x: 0.0, y: 0.0},
@@ -141,7 +141,7 @@ impl Game {
         forward.z = 0.0;
         forward.normalize();
 
-        let up = Vector{x: 0.0, y: 0.0, z: 1.0, w: 0.0};
+        let up = Vector3{x: 0.0, y: 0.0, z: 1.0};
         let mut right = cross_product(forward, up);
         right.normalize();
 
