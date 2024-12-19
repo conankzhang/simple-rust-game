@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use buffer::{create_index_buffer, create_vertex_buffer};
 use cgmath::{Deg, Point3};
-use command::{create_command_buffers, create_command_pool};
+use command::{create_command_buffers, create_command_pools};
 use descriptor::{create_descriptor_pool, create_descriptor_set_layout, create_descriptor_sets, create_uniform_buffers, Mat4, UniformBufferObject};
 use device::{create_logical_device, pick_physical_device};
 use image::{create_color_objects, create_depth_objects, create_texture_image, create_texture_image_view, create_texture_sampler};
@@ -68,6 +68,7 @@ struct RenderData {
 
     framebuffers : Vec<vk::Framebuffer>,
     command_pool: vk::CommandPool,
+    command_pools: Vec<vk::CommandPool>,
     command_buffers: Vec<vk::CommandBuffer>,
 
     image_available_semaphores: Vec<vk::Semaphore>,
@@ -128,7 +129,7 @@ impl Renderer {
         create_color_objects(&instance, &device, &mut data)?;
         create_depth_objects(&instance, &device, &mut data)?;
         create_framebuffers(&device, &mut data)?;
-        create_command_pool(&instance, &device, &mut data)?;
+        create_command_pools(&instance, &device, &mut data)?;
         create_texture_image(&instance, &device, &mut data)?;
         create_texture_image_view(&device, &mut data)?;
         create_texture_sampler(&device, &mut data)?;
@@ -145,6 +146,77 @@ impl Renderer {
         create_sync_objects(&device, &mut data)?;
 
         Ok(Self{entry, data, instance, device})
+    }
+
+    unsafe fn update_command_buffer(&mut self, image_index: usize) -> Result<()>
+    {
+        let command_pool = self.data.command_pools[image_index];
+        self.device.reset_command_pool(command_pool, vk::CommandPoolResetFlags::empty())?;
+
+        let command_buffer= self.data.command_buffers[image_index];
+
+        let model = Mat4::from_axis_angle(
+            Vec3{x: 0.0, y:0.0, z:1.0},
+            Deg(90.0)
+        );
+
+        /*
+        let translation = Vec3{x: character.position.x, y: character.position.y, z: character.position.z};
+        let position = Point3{x: character.position.x, y: character.position.y, z: character.position.z};
+        let transformation = Mat4::from_translation(translation);
+
+        model = model * transformation;
+        */
+
+        let model_bytes = std::slice::from_raw_parts(
+            &model as *const Mat4 as *const u8,
+            size_of::<Mat4>()
+        );
+
+        let info = vk::CommandBufferBeginInfo::builder()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+
+        self.device.begin_command_buffer(command_buffer, &info)?;
+
+        let render_area = vk::Rect2D::builder()
+            .offset(vk::Offset2D::default())
+            .extent(self.data.swapchain_extent);
+
+        let color_clear_value = vk::ClearValue {
+            color: vk::ClearColorValue {
+                float32: [0.0, 0.0, 0.0, 1.0],
+            },
+        };
+
+        let depth_clear_value = vk::ClearValue {
+            depth_stencil: vk::ClearDepthStencilValue {
+                depth: 1.0,
+                stencil: 0,
+            },
+        };
+
+        let clear_values = &[color_clear_value, depth_clear_value];
+        let info = vk::RenderPassBeginInfo::builder()
+            .render_pass(self.data.render_pass)
+            .framebuffer(self.data.framebuffers[image_index])
+            .render_area(render_area)
+            .clear_values(clear_values);
+
+        self.device.cmd_begin_render_pass(command_buffer, &info, vk::SubpassContents::INLINE);
+
+        self.device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.data.pipeline);
+        self.device.cmd_bind_vertex_buffers(command_buffer, 0, &[self.data.vertex_buffer], &[0]);
+        self.device.cmd_bind_index_buffer(command_buffer, self.data.index_buffer, 0, vk::IndexType::UINT32);
+        self.device.cmd_bind_descriptor_sets(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.data.pipeline_layout, 0, &[self.data.descriptor_sets[image_index]], &[]);
+
+        self.device.cmd_push_constants(command_buffer, self.data.pipeline_layout, vk::ShaderStageFlags::VERTEX, 0, model_bytes,);
+        self.device.cmd_push_constants(command_buffer, self.data.pipeline_layout, vk::ShaderStageFlags::FRAGMENT, 64, &0.25f32.to_ne_bytes()[..],);
+        self.device.cmd_draw_indexed(command_buffer, self.data.indices.len() as u32, 1, 0, 0, 0);
+
+        self.device.cmd_end_render_pass(command_buffer);
+        self.device.end_command_buffer(command_buffer)?;
+
+        Ok(())
     }
 
     unsafe fn update_uniform_buffer(&self, character: &Character, image_index: usize) -> Result<()>
@@ -219,6 +291,7 @@ impl Renderer {
 
         self.data.images_in_flight[image_index as usize] = self.data.in_flight_fences[frame];
 
+        self.update_command_buffer(image_index)?;
         self.update_uniform_buffer(character, image_index)?;
 
         let wait_semaphores = &[self.data.image_available_semaphores[frame]];
@@ -298,7 +371,6 @@ impl Renderer {
             .iter()
             .for_each(|f| self.device.destroy_framebuffer(*f, None));
 
-        self.device.free_command_buffers(self.data.command_pool, &self.data.command_buffers);
         self.device.destroy_pipeline(self.data.pipeline, None);
         self.device.destroy_pipeline_layout(self.data.pipeline_layout, None);
         self.device.destroy_render_pass(self.data.render_pass, None);
@@ -337,6 +409,9 @@ impl Renderer {
         self.data.image_available_semaphores
             .iter()
             .for_each(|s| self.device.destroy_semaphore(*s, None));
+        self.data.command_pools
+            .iter()
+            .for_each(|p| self.device.destroy_command_pool(*p, None));
 
         self.device.destroy_command_pool(self.data.command_pool, None);
         self.device.destroy_device(None);
