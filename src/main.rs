@@ -167,16 +167,16 @@ impl Game {
     {
         if event.state == ElementState::Pressed {
             match event.physical_key {
-                PhysicalKey::Code(KeyCode::ArrowLeft) => {
+                PhysicalKey::Code(KeyCode::KeyA) => {
                     self.character.velocity_input_goal.x = -10.0;
                 },
-                PhysicalKey::Code(KeyCode::ArrowRight) => {
+                PhysicalKey::Code(KeyCode::KeyD) => {
                     self.character.velocity_input_goal.x = 10.0;
                 },
-                PhysicalKey::Code(KeyCode::ArrowUp) => {
+                PhysicalKey::Code(KeyCode::KeyW) => {
                     self.character.velocity_input_goal.y = 10.0;
                 },
-                PhysicalKey::Code(KeyCode::ArrowDown) => {
+                PhysicalKey::Code(KeyCode::KeyS) => {
                     self.character.velocity_input_goal.y = -10.0;
                 },
                 PhysicalKey::Code(KeyCode::Escape) => {
@@ -187,16 +187,16 @@ impl Game {
         }
         else if event.state == ElementState::Released {
             match event.physical_key {
-                PhysicalKey::Code(KeyCode::ArrowLeft) => {
+                PhysicalKey::Code(KeyCode::KeyA) => {
                     self.character.velocity_input_goal.x = 0.0;
                 },
-                PhysicalKey::Code(KeyCode::ArrowRight) => {
+                PhysicalKey::Code(KeyCode::KeyD) => {
                     self.character.velocity_input_goal.x = 0.0;
                 },
-                PhysicalKey::Code(KeyCode::ArrowUp) => {
+                PhysicalKey::Code(KeyCode::KeyW) => {
                     self.character.velocity_input_goal.y = 0.0;
                 },
-                PhysicalKey::Code(KeyCode::ArrowDown) => {
+                PhysicalKey::Code(KeyCode::KeyS) => {
                     self.character.velocity_input_goal.y = 0.0;
                 },
                 _ => {}

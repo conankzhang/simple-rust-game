@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Ok, Result};
 use buffer::{create_index_buffer, create_vertex_buffer};
-use cgmath::{Deg, Point3, Vector3};
+use cgmath::{Deg, Point3};
 use command::{create_command_buffers, create_command_pools};
 use descriptor::{create_descriptor_pool, create_descriptor_set_layout, create_descriptor_sets, create_uniform_buffers, Mat4, UniformBufferObject};
 use device::{create_logical_device, pick_physical_device};
