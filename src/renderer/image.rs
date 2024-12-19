@@ -52,6 +52,7 @@ pub unsafe fn create_texture_image(instance: &Instance, device: &Device, data: &
         width,
         height,
         data.mip_levels,
+        vk::SampleCountFlags::_1,
         vk::Format::R8G8B8A8_SRGB,
         vk::ImageTiling::OPTIMAL,
         vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::TRANSFER_SRC,
@@ -97,7 +98,7 @@ pub unsafe fn create_texture_image(instance: &Instance, device: &Device, data: &
     Ok(())
 }
 
-pub unsafe fn create_image(instance: &Instance, device: &Device, data: &mut RenderData, width: u32, height: u32, mip_levels: u32, format: vk::Format, tiling: vk::ImageTiling, usage: vk::ImageUsageFlags, properties: vk::MemoryPropertyFlags) -> Result<(vk::Image, vk::DeviceMemory)>
+pub unsafe fn create_image(instance: &Instance, device: &Device, data: &mut RenderData, width: u32, height: u32, mip_levels: u32, samples: vk::SampleCountFlags, format: vk::Format, tiling: vk::ImageTiling, usage: vk::ImageUsageFlags, properties: vk::MemoryPropertyFlags) -> Result<(vk::Image, vk::DeviceMemory)>
 {
     let info = vk::ImageCreateInfo::builder()
         .image_type(vk::ImageType::_2D)
@@ -109,7 +110,7 @@ pub unsafe fn create_image(instance: &Instance, device: &Device, data: &mut Rend
         .initial_layout(vk::ImageLayout::UNDEFINED)
         .usage(usage)
         .sharing_mode(vk::SharingMode::EXCLUSIVE)
-        .samples(vk::SampleCountFlags::_1)
+        .samples(samples)
         .flags(vk::ImageCreateFlags::empty());
 
     let image = device.create_image(&info, None)?;
@@ -281,7 +282,9 @@ pub unsafe fn create_depth_objects(instance: &Instance, device: &Device, data: &
         data.swapchain_extent.width,
         data.swapchain_extent.height,
         1,
-        format, vk::ImageTiling::OPTIMAL,
+        data.msaa_samples,
+        format,
+        vk::ImageTiling::OPTIMAL,
         vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
          vk::MemoryPropertyFlags::DEVICE_LOCAL
     )?;
@@ -299,6 +302,38 @@ pub unsafe fn create_depth_objects(instance: &Instance, device: &Device, data: &
 
     Ok(())
 }
+
+pub unsafe fn create_color_objects(instance: &Instance, device: &Device, data: &mut RenderData) ->Result<()>
+{
+    let (color_image, color_image_memory) = create_image(
+        instance,
+        device,
+        data,
+        data.swapchain_extent.width,
+        data.swapchain_extent.height,
+        1,
+        data.msaa_samples,
+        data.swapchain_format,
+         vk::ImageTiling::OPTIMAL,
+        vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSIENT_ATTACHMENT,
+         vk::MemoryPropertyFlags::DEVICE_LOCAL
+    )?;
+
+    data.color_image = color_image;
+    data.color_image_memory = color_image_memory;
+
+    data.color_image_view = create_image_view(
+        device,
+        data.color_image,
+        data.swapchain_format,
+        vk::ImageAspectFlags::COLOR,
+        1
+    )?;
+
+    Ok(())
+}
+
+
 
 unsafe fn generate_mipmaps(instance: &Instance, device: &Device, data: &RenderData, image: vk::Image, format: vk::Format, width: u32, height: u32, mip_levels: u32) ->Result<()>
 {

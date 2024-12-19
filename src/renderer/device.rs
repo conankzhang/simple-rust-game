@@ -133,7 +133,8 @@ pub unsafe fn create_logical_device(entry: &Entry, instance: &Instance, data: &m
     }
 
     let features  = vk::PhysicalDeviceFeatures::builder()
-        .sampler_anisotropy(true);
+        .sampler_anisotropy(true)
+        .sample_rate_shading(true);
 
     let info = vk::DeviceCreateInfo::builder()
         .queue_create_infos(&queue_infos)
@@ -181,6 +182,29 @@ pub unsafe fn get_supported_format(instance: &Instance, data: &RenderData, candi
 pub unsafe fn get_depth_format(instance: &Instance, data: &RenderData) ->Result<vk::Format>
 {
     let candidates = &[vk::Format::D32_SFLOAT, vk::Format::D32_SFLOAT_S8_UINT, vk::Format::D24_UNORM_S8_UINT,];
-    get_supported_format(instance, data, candidates, vk::ImageTiling::OPTIMAL, vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT)
+    get_supported_format(
+        instance,
+        data,
+        candidates,
+        vk::ImageTiling::OPTIMAL,
+         vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT
+    )
 }
 
+pub unsafe fn get_max_msaa_samples(instance: &Instance, data: &RenderData) -> vk::SampleCountFlags
+{
+    let properties = instance.get_physical_device_properties(data.physical_device);
+    let counts = properties.limits.framebuffer_color_sample_counts & properties.limits.framebuffer_depth_sample_counts;
+    [
+        vk::SampleCountFlags::_64,
+        vk::SampleCountFlags::_32,
+        vk::SampleCountFlags::_16,
+        vk::SampleCountFlags::_8,
+        vk::SampleCountFlags::_4,
+        vk::SampleCountFlags::_2,
+    ]
+    .iter()
+    .cloned()
+    .find(|c| counts.contains(*c))
+    .unwrap_or(vk::SampleCountFlags::_1)
+}

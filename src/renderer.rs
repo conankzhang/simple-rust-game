@@ -4,7 +4,7 @@ use cgmath::{Deg, Point3};
 use command::{create_command_buffers, create_command_pool};
 use descriptor::{create_descriptor_pool, create_descriptor_set_layout, create_descriptor_sets, create_uniform_buffers, Mat4, UniformBufferObject};
 use device::{create_logical_device, pick_physical_device};
-use image::{create_depth_objects, create_texture_image, create_texture_image_view, create_texture_sampler};
+use image::{create_color_objects, create_depth_objects, create_texture_image, create_texture_image_view, create_texture_sampler};
 use instance::{create_instance, create_sync_objects, load_model, VALIDATION_ENABLED};
 use pipeline::{create_pipeline, create_render_pass};
 use std::mem::size_of;
@@ -50,6 +50,7 @@ struct RenderData {
     surface: vk::SurfaceKHR,
     messenger: vk::DebugUtilsMessengerEXT,
     physical_device: vk::PhysicalDevice,
+    msaa_samples: vk::SampleCountFlags,
     graphics_queue: vk::Queue,
     present_queue: vk::Queue,
 
@@ -99,6 +100,11 @@ struct RenderData {
     depth_image: vk::Image,
     depth_image_memory: vk::DeviceMemory,
     depth_image_view: vk::ImageView,
+
+    // Multisampling
+    color_image : vk::Image,
+    color_image_memory : vk::DeviceMemory,
+    color_image_view: vk::ImageView,
 }
 
 impl Renderer {
@@ -119,6 +125,7 @@ impl Renderer {
         create_descriptor_set_layout(&device, &mut data)?;
         create_pipeline(&device, &mut data)?;
 
+        create_color_objects(&instance, &device, &mut data)?;
         create_depth_objects(&instance, &device, &mut data)?;
         create_framebuffers(&device, &mut data)?;
         create_command_pool(&instance, &device, &mut data)?;
@@ -267,6 +274,7 @@ impl Renderer {
 
         create_render_pass(&self.instance, &self.device, &mut self.data)?;
         create_pipeline(&self.device, &mut self.data)?;
+        create_color_objects(&self.instance, &self.device, &mut self.data)?;
         create_depth_objects(&self.instance, &self.device, &mut self.data)?;
 
         create_framebuffers(&self.device, &mut self.data)?;
@@ -281,6 +289,10 @@ impl Renderer {
     }
 
     unsafe fn destroy_swapchain(&mut self) {
+        self.device.destroy_image_view(self.data.color_image_view, None);
+        self.device.free_memory(self.data.color_image_memory, None);
+        self.device.destroy_image(self.data.color_image, None);
+
         self.device.destroy_image_view(self.data.depth_image_view, None);
         self.device.free_memory(self.data.depth_image_memory, None);
         self.device.destroy_image(self.data.depth_image, None);
