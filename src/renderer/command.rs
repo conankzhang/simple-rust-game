@@ -72,5 +72,7 @@ pub unsafe fn create_command_buffers(device: &Device, data: &mut RenderData) ->R
         data.command_buffers.push(command_buffer);
     }
 
+    data.secondary_command_buffers = vec![vec![]; data.swapchain_images.len()];
+
     Ok(())
 }

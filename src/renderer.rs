@@ -1,6 +1,6 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Ok, Result};
 use buffer::{create_index_buffer, create_vertex_buffer};
-use cgmath::{Deg, Point3};
+use cgmath::{Deg, Point3, Vector3};
 use command::{create_command_buffers, create_command_pools};
 use descriptor::{create_descriptor_pool, create_descriptor_set_layout, create_descriptor_sets, create_uniform_buffers, Mat4, UniformBufferObject};
 use device::{create_logical_device, pick_physical_device};
@@ -70,6 +70,7 @@ struct RenderData {
     command_pool: vk::CommandPool,
     command_pools: Vec<vk::CommandPool>,
     command_buffers: Vec<vk::CommandBuffer>,
+    secondary_command_buffers: Vec<Vec<vk::CommandBuffer>>,
 
     image_available_semaphores: Vec<vk::Semaphore>,
     render_finished_semaphores: Vec<vk::Semaphore>,
@@ -148,30 +149,12 @@ impl Renderer {
         Ok(Self{entry, data, instance, device})
     }
 
-    unsafe fn update_command_buffer(&mut self, image_index: usize) -> Result<()>
+    unsafe fn update_command_buffer(&mut self, character: &Character, image_index: usize) -> Result<()>
     {
         let command_pool = self.data.command_pools[image_index];
         self.device.reset_command_pool(command_pool, vk::CommandPoolResetFlags::empty())?;
 
         let command_buffer= self.data.command_buffers[image_index];
-
-        let model = Mat4::from_axis_angle(
-            Vec3{x: 0.0, y:0.0, z:1.0},
-            Deg(90.0)
-        );
-
-        /*
-        let translation = Vec3{x: character.position.x, y: character.position.y, z: character.position.z};
-        let position = Point3{x: character.position.x, y: character.position.y, z: character.position.z};
-        let transformation = Mat4::from_translation(translation);
-
-        model = model * transformation;
-        */
-
-        let model_bytes = std::slice::from_raw_parts(
-            &model as *const Mat4 as *const u8,
-            size_of::<Mat4>()
-        );
 
         let info = vk::CommandBufferBeginInfo::builder()
             .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
@@ -202,16 +185,15 @@ impl Renderer {
             .render_area(render_area)
             .clear_values(clear_values);
 
-        self.device.cmd_begin_render_pass(command_buffer, &info, vk::SubpassContents::INLINE);
+        self.device.cmd_begin_render_pass(command_buffer, &info, vk::SubpassContents::SECONDARY_COMMAND_BUFFERS);
 
-        self.device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.data.pipeline);
-        self.device.cmd_bind_vertex_buffers(command_buffer, 0, &[self.data.vertex_buffer], &[0]);
-        self.device.cmd_bind_index_buffer(command_buffer, self.data.index_buffer, 0, vk::IndexType::UINT32);
-        self.device.cmd_bind_descriptor_sets(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.data.pipeline_layout, 0, &[self.data.descriptor_sets[image_index]], &[]);
+        let secondary_command_buffers= (0..2)
+            .map(|i|
+                self.update_secondary_command_buffer(image_index, i, &character)
+            )
+            .collect::<Result<Vec<_>, _>>()?;
 
-        self.device.cmd_push_constants(command_buffer, self.data.pipeline_layout, vk::ShaderStageFlags::VERTEX, 0, model_bytes,);
-        self.device.cmd_push_constants(command_buffer, self.data.pipeline_layout, vk::ShaderStageFlags::FRAGMENT, 64, &0.25f32.to_ne_bytes()[..],);
-        self.device.cmd_draw_indexed(command_buffer, self.data.indices.len() as u32, 1, 0, 0, 0);
+        self.device.cmd_execute_commands(command_buffer, &secondary_command_buffers[..]);
 
         self.device.cmd_end_render_pass(command_buffer);
         self.device.end_command_buffer(command_buffer)?;
@@ -219,15 +201,77 @@ impl Renderer {
         Ok(())
     }
 
+    unsafe fn update_secondary_command_buffer(&mut self, image_index: usize, model_index: usize, character: &Character) -> Result<vk::CommandBuffer>
+    {
+        let command_buffers = &mut self.data.secondary_command_buffers[image_index];
+        while model_index >= command_buffers.len() {
+            let allocate_info = vk::CommandBufferAllocateInfo::builder()
+                .command_pool(self.data.command_pools[image_index])
+                .level(vk::CommandBufferLevel::SECONDARY)
+                .command_buffer_count(1);
+
+            let command_buffer = self.device.allocate_command_buffers(&allocate_info)?[0];
+            command_buffers.push(command_buffer);
+        }
+
+        let mut model = Mat4::from_axis_angle(
+            Vec3{x: 0.0, y:0.0, z:1.0},
+            Deg(90.0)
+        );
+
+        let mut translation = Vec3::new( character.position.x, character.position.y, character.position.z);
+        if model_index != 0
+        {
+            translation.x = 0.0;
+            translation.y = 0.0;
+            translation.z = 0.0;
+        }
+
+        let transformation = Mat4::from_translation(translation);
+        model = model * transformation;
+
+        let model_bytes = std::slice::from_raw_parts(
+            &model as *const Mat4 as *const u8,
+            size_of::<Mat4>()
+        );
+
+        let opacity = (model_index + 1) as f32 * 0.25;
+        let opacity_bytes = &opacity.to_ne_bytes()[..];
+
+        let command_buffer = command_buffers[model_index];
+
+        let inheritance_info = vk::CommandBufferInheritanceInfo::builder()
+            .render_pass(self.data.render_pass)
+            .subpass(0)
+            .framebuffer(self.data.framebuffers[image_index]);
+
+        let info = vk::CommandBufferBeginInfo::builder()
+            .flags(vk::CommandBufferUsageFlags::RENDER_PASS_CONTINUE)
+            .inheritance_info(&inheritance_info);
+
+        self.device.begin_command_buffer(command_buffer, &info)?;
+
+        self.device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.data.pipeline);
+        self.device.cmd_bind_vertex_buffers(command_buffer, 0, &[self.data.vertex_buffer], &[0]);
+        self.device.cmd_bind_index_buffer(command_buffer, self.data.index_buffer, 0, vk::IndexType::UINT32);
+        self.device.cmd_bind_descriptor_sets(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.data.pipeline_layout, 0, &[self.data.descriptor_sets[image_index]], &[]);
+
+        self.device.cmd_push_constants(command_buffer, self.data.pipeline_layout, vk::ShaderStageFlags::VERTEX, 0, model_bytes,);
+        self.device.cmd_push_constants(command_buffer, self.data.pipeline_layout, vk::ShaderStageFlags::FRAGMENT, 64, opacity_bytes,);
+        self.device.cmd_draw_indexed(command_buffer, self.data.indices.len() as u32, 1, 0, 0, 0);
+
+        self.device.end_command_buffer(command_buffer)?;
+
+        Ok(command_buffer)
+    }
+
     unsafe fn update_uniform_buffer(&self, character: &Character, image_index: usize) -> Result<()>
     {
         let view_angle = character.position - character.view_angle.to_vector() * 1.0;
-        let eye = Point3{x: view_angle.x, y: view_angle.y, z: view_angle.z};
-
         let view = Mat4::look_at_rh(
-            eye,
-            Point3{x: 0.0, y: 0.0, z: 0.0},
-            Vec3{x: 0.0, y: 0.0, z: 1.0},
+            Point3::new(view_angle.x, view_angle.y, view_angle.z),
+        Point3::new(character.position.x, character.position.y, character.position.z),
+            Vec3::new( 0.0, 0.0, 1.0),
         );
 
         /*
@@ -276,7 +320,7 @@ impl Renderer {
                 vk::Fence::null());
 
         let image_index = match result {
-            Ok((image_index, _)) => image_index as usize,
+            VkResult::Ok((image_index, _)) => image_index as usize,
             Err(vk::ErrorCode::OUT_OF_DATE_KHR) => return self.recreate_swapchain(window),
             Err(e) => return Err(anyhow!(e)),
         };
@@ -291,7 +335,7 @@ impl Renderer {
 
         self.data.images_in_flight[image_index as usize] = self.data.in_flight_fences[frame];
 
-        self.update_command_buffer(image_index)?;
+        self.update_command_buffer(character, image_index)?;
         self.update_uniform_buffer(character, image_index)?;
 
         let wait_semaphores = &[self.data.image_available_semaphores[frame]];
@@ -315,7 +359,7 @@ impl Renderer {
             .image_indices(image_indices);
 
         let result = self.device.queue_present_khr(self.data.present_queue, &present_info);
-        let changed = result == Ok(vk::SuccessCode::SUBOPTIMAL_KHR) || result == Err(vk::ErrorCode::OUT_OF_DATE_KHR);
+        let changed = result == VkResult::Ok(vk::SuccessCode::SUBOPTIMAL_KHR) || result == Err(vk::ErrorCode::OUT_OF_DATE_KHR);
 
         if resized || changed {
             self.recreate_swapchain(window)?;
