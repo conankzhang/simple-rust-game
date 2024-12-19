@@ -1,7 +1,7 @@
 use anyhow::Result;
 use vulkanalia::{vk::{self, DeviceV1_0, Handle, HasBuilder}, Device, Instance};
 
-use super::{QueueFamilyIndices, RenderData, INDICES};
+use super::{device::QueueFamilyIndices, RenderData, INDICES};
 
 pub unsafe fn create_command_pool(instance: &Instance, device: &Device, data: &mut RenderData) ->Result<()>
 {

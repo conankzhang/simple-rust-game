@@ -1,7 +1,7 @@
 use anyhow::Result;
 use vulkanalia::{vk::{self, DeviceV1_0, HasBuilder}, Device, Instance};
 
-use super::{create_buffer, RenderData};
+use super::{buffer::create_buffer, RenderData};
 
 pub type Mat4 = cgmath::Matrix4<f32>;
 

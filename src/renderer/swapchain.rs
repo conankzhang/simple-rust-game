@@ -1,7 +1,7 @@
 use anyhow::Result;
-use vulkanalia::{vk::{self, Handle, HasBuilder, KhrSurfaceExtension, KhrSwapchainExtension}, Device, Instance};
+use vulkanalia::{vk::{self, DeviceV1_0, Handle, HasBuilder, KhrSurfaceExtension, KhrSwapchainExtension}, Device, Instance};
 use winit::window::Window;
-use super::{image::create_image_view, QueueFamilyIndices, RenderData};
+use super::{device::QueueFamilyIndices, image::create_image_view, RenderData};
 
 #[derive(Clone, Debug)]
 pub struct SwapchainSupport
@@ -123,3 +123,26 @@ pub unsafe fn create_swapchain_image_views(device: &Device, data: &mut RenderDat
 
     Ok(())
 }
+
+pub unsafe fn create_framebuffers(device: &Device, data: &mut RenderData) ->Result<()>
+{
+    data.framebuffers = data
+        .swapchain_image_views
+        .iter()
+        .map(|i| {
+            let attachments = &[*i];
+            let create_info = vk::FramebufferCreateInfo::builder()
+                .render_pass(data.render_pass)
+                .attachments(attachments)
+                .width(data.swapchain_extent.width)
+                .height(data.swapchain_extent.height)
+                .layers(1);
+
+            device.create_framebuffer(&create_info, None)
+
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(())
+}
+

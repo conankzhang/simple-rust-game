@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use std::ptr::copy_nonoverlapping as memcpy;
 use vulkanalia::{vk::{self, DeviceV1_0, HasBuilder}, Device, Instance};
 
-use super::{command::{begin_single_time_commands, end_single_time_commands}, create_buffer, get_memory_type_index, RenderData};
+use super::{buffer::create_buffer, command::{begin_single_time_commands, end_single_time_commands}, device::get_memory_type_index, RenderData};
 
 pub unsafe fn create_texture_image(instance: &Instance, device: &Device, data: &mut RenderData) -> Result<()>
 {

@@ -3,17 +3,52 @@ use std::collections::HashSet;
 use anyhow::{anyhow, Result};
 use log::{info, warn};
 use thiserror::Error;
-use vulkanalia::{vk::{self, DeviceQueueCreateInfo, DeviceV1_0, HasBuilder, InstanceV1_0}, Device, Entry, Instance};
+use vulkanalia::{vk::{self, DeviceQueueCreateInfo, DeviceV1_0, HasBuilder, InstanceV1_0, KhrSurfaceExtension}, Device, Entry, Instance};
 
-use crate::renderer::VALIDATION_LAYER;
+use crate::renderer::instance::VALIDATION_LAYER;
 
-use super::{swapchain::SwapchainSupport, QueueFamilyIndices, RenderData, PORTABILITY_MACOS_VERSION, VALIDATION_ENABLED};
+use super::{instance::{PORTABILITY_MACOS_VERSION, VALIDATION_ENABLED}, swapchain::SwapchainSupport, RenderData};
 
 const DEVICE_EXTENSIONS: &[vk::ExtensionName] = &[vk::KHR_SWAPCHAIN_EXTENSION.name];
 
 #[derive(Debug, Error)]
 #[error("Missing {0}.")]
 pub struct SuitabilityError(pub &'static str);
+
+#[derive(Copy, Clone, Debug)]
+pub struct QueueFamilyIndices
+{
+    pub graphics: u32,
+    pub present: u32
+}
+
+impl QueueFamilyIndices {
+    pub unsafe fn get(instance: &Instance, data: & RenderData, physical_device : vk::PhysicalDevice) -> Result<Self>{
+        let properties = instance.get_physical_device_queue_family_properties(physical_device);
+
+        let graphics = properties
+            .iter()
+            .position(|p| p.queue_flags.contains(vk::QueueFlags::GRAPHICS))
+            .map(|i| i as u32);
+
+        let mut present = None;
+        for(index, properties) in properties.iter().enumerate() {
+            if instance.get_physical_device_surface_support_khr(physical_device, index as u32, data.surface)?
+            {
+                present = Some(index as u32);
+                break;
+            }
+        }
+
+        if let (Some(graphics), Some(present)) = (graphics, present) {
+            Ok(Self{graphics, present})
+        }
+        else {
+            Err(anyhow!(SuitabilityError("Missing required queue families.")))
+        }
+    }
+}
+
 
 pub unsafe fn pick_physical_device(instance: &Instance, data: &mut RenderData) ->Result<()> {
 
@@ -112,3 +147,17 @@ pub unsafe fn create_logical_device(entry: &Entry, instance: &Instance, data: &m
 
     Ok(device)
 }
+
+pub unsafe fn get_memory_type_index(instance: &Instance, data: &RenderData, properties: vk::MemoryPropertyFlags, requirements: vk::MemoryRequirements) ->Result<u32>
+{
+    let memory = instance.get_physical_device_memory_properties(data.physical_device);
+
+    (0..memory.memory_type_count)
+        .find(|i| {
+            let suitable = (requirements.memory_type_bits & (1 << i)) != 0;
+            let memory_type = memory.memory_types[*i as usize];
+            suitable && memory_type.property_flags.contains(properties)
+        })
+        .ok_or_else(|| anyhow!("Failed to find suitable memory type."))
+}
+
