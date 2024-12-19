@@ -8,10 +8,14 @@ use super::{buffer::create_buffer, command::{begin_single_time_commands, end_sin
 
 pub unsafe fn create_texture_image(instance: &Instance, device: &Device, data: &mut RenderData) -> Result<()>
 {
-    let image = File::open("resources/texture.png")?;
+    let image = File::open("resources/viking_room.png")?;
 
     let decoder = png::Decoder::new(image);
     let mut reader = decoder.read_info()?;
+
+    if reader.info().color_type != png::ColorType::Rgba {
+        panic!("invalid texture image.")
+    }
 
     let mut pixels = vec![0; reader.info().raw_bytes()];
     reader.next_frame(&mut pixels)?;

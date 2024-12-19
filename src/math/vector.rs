@@ -14,7 +14,7 @@ pub fn cross_product(lhs: Vector3, rhs: Vector3) -> Vector3
         z: (lhs.x * rhs.y) + (lhs.y * rhs.x),
     }
 }
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vector2
 {
     pub x: f32,
@@ -28,7 +28,7 @@ impl Vector2
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vector3
 {
     pub x: f32,
@@ -36,7 +36,7 @@ pub struct Vector3
     pub z: f32,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vector4
 {
     pub x: f32,

@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::ptr::copy_nonoverlapping as memcpy;
 use vulkanalia::{vk::{self, DeviceV1_0, HasBuilder}, Device, Instance};
 
-use super::{command::{begin_single_time_commands, end_single_time_commands}, device::get_memory_type_index, vertex::Vertex, RenderData, INDICES, VERTICES};
+use super::{command::{begin_single_time_commands, end_single_time_commands}, device::get_memory_type_index, vertex::Vertex, RenderData};
 
 pub unsafe fn create_buffer(instance: &Instance, device: &Device, data: &RenderData, size: vk::DeviceSize, usage: vk::BufferUsageFlags, properties: vk::MemoryPropertyFlags) ->Result<(vk::Buffer, vk::DeviceMemory)>
 {
@@ -44,7 +44,7 @@ pub unsafe fn copy_buffer(device: &Device, data: &RenderData, source: vk::Buffer
 
 pub unsafe fn create_vertex_buffer(instance: &Instance, device: &Device, data: &mut RenderData) ->Result<()>
 {
-    let size = (size_of::<Vertex>() * VERTICES.len()) as u64;
+    let size = (size_of::<Vertex>() * data.vertices.len()) as u64;
 
     let (staging_buffer, staging_buffer_memory) = create_buffer(
         instance,
@@ -56,7 +56,7 @@ pub unsafe fn create_vertex_buffer(instance: &Instance, device: &Device, data: &
     )?;
 
     let memory = device.map_memory(staging_buffer_memory, 0, size, vk::MemoryMapFlags::empty())?;
-    memcpy(VERTICES.as_ptr(), memory.cast(), VERTICES.len());
+    memcpy(data.vertices.as_ptr(), memory.cast(), data.vertices.len());
     device.unmap_memory(staging_buffer_memory);
 
     let (vertex_buffer, vertex_buffer_memory) = create_buffer(
@@ -81,7 +81,7 @@ pub unsafe fn create_vertex_buffer(instance: &Instance, device: &Device, data: &
 
 pub unsafe fn create_index_buffer(instance: &Instance, device: &Device, data: &mut RenderData) ->Result<()>
 {
-    let size = (size_of::<u32>() * INDICES.len()) as u64;
+    let size = (size_of::<u32>() * data.indices.len()) as u64;
 
     let (staging_buffer, staging_buffer_memory) = create_buffer(
         instance,
@@ -93,7 +93,7 @@ pub unsafe fn create_index_buffer(instance: &Instance, device: &Device, data: &m
     )?;
 
     let memory = device.map_memory(staging_buffer_memory, 0, size, vk::MemoryMapFlags::empty())?;
-    memcpy(INDICES.as_ptr(), memory.cast(), INDICES.len());
+    memcpy(data.indices.as_ptr(), memory.cast(), data.indices.len());
     device.unmap_memory(staging_buffer_memory);
 
     let (index_buffer, index_buffer_memory) = create_buffer(

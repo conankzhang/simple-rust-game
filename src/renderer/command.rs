@@ -1,7 +1,7 @@
 use anyhow::Result;
 use vulkanalia::{vk::{self, DeviceV1_0, Handle, HasBuilder}, Device, Instance};
 
-use super::{device::QueueFamilyIndices, RenderData, INDICES};
+use super::{device::QueueFamilyIndices, RenderData};
 
 pub unsafe fn create_command_pool(instance: &Instance, device: &Device, data: &mut RenderData) ->Result<()>
 {
@@ -62,7 +62,7 @@ pub unsafe fn create_command_buffers(device: &Device, data: &mut RenderData) ->R
         device.cmd_bind_vertex_buffers(*command_buffer, 0, &[data.vertex_buffer], &[0]);
         device.cmd_bind_index_buffer(*command_buffer, data.index_buffer, 0, vk::IndexType::UINT32);
         device.cmd_bind_descriptor_sets(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.pipeline_layout, 0, &[data.descriptor_sets[i]], &[]);
-        device.cmd_draw_indexed(*command_buffer, INDICES.len() as u32, 1, 0, 0,0);
+        device.cmd_draw_indexed(*command_buffer, data.indices.len() as u32, 1, 0, 0,0);
         device.cmd_end_render_pass(*command_buffer);
         device.end_command_buffer(*command_buffer)?;
     }

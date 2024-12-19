@@ -1,10 +1,12 @@
 use anyhow::{anyhow, Result};
 use log::{debug, error, info, trace, warn};
-use std::{collections::HashSet, ffi::{c_void, CStr}};
+use std::{collections::{HashMap, HashSet}, ffi::{c_void, CStr}, fs::File, io::BufReader};
 use vulkanalia::{vk::{self, DeviceV1_0, EntryV1_0, ExtDebugUtilsExtension, Handle, HasBuilder}, window, Device, Entry, Instance, Version};
 use winit::window::Window;
 
-use super::{RenderData, MAX_FRAMES_IN_FLIGHT};
+use crate::math::vector::{Vector2, Vector3};
+
+use super::{vertex::Vertex, RenderData, MAX_FRAMES_IN_FLIGHT};
 
 pub const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
 pub const VALIDATION_LAYER: vk::ExtensionName = vk::ExtensionName::from_bytes(b"VK_LAYER_KHRONOS_validation");
@@ -126,6 +128,59 @@ pub unsafe fn create_sync_objects(device: &Device, data: &mut RenderData) ->Resu
         .iter()
         .map(|_| vk::Fence::null())
         .collect();
+
+    Ok(())
+}
+
+pub fn load_model(data: &mut RenderData) -> Result<()>
+{
+    let mut reader = BufReader::new(File::open("resources/viking_room.obj")?);
+
+    let (models, _) = tobj::load_obj_buf(
+        &mut reader,
+        &tobj::LoadOptions{
+            triangulate: true,
+            ..Default::default()
+        },
+        |_| Ok(Default::default()),
+    )?;
+
+    let mut unique_vertices = HashMap::new();
+
+    for model in &models {
+        for index in &model.mesh.indices {
+            let pos_offset = (3 * index) as usize;
+            let tex_coord_offset = (2 * index) as usize;
+            let vertex = Vertex {
+                position: Vector3::new(
+                    model.mesh.positions[pos_offset],
+                    model.mesh.positions[pos_offset + 1],
+                    model.mesh.positions[pos_offset + 2],
+                ),
+                color: Vector3::new(
+                    1.0,
+                    1.0,
+                     1.0
+                ),
+                tex_coord: Vector2::new(
+                    model.mesh.texcoords[tex_coord_offset],
+                    1.0 - model.mesh.texcoords[tex_coord_offset + 1],
+                )
+            };
+
+            if let Some(index) = unique_vertices.get(&vertex) {
+                data.indices.push(*index as u32);
+            } else {
+                let index = data.vertices.len();
+                unique_vertices.insert(vertex, index);
+
+                data.vertices.push(vertex);
+                data.indices.push(index as u32);
+            }
+        };
+
+
+    }
 
     Ok(())
 }

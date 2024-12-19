@@ -5,7 +5,7 @@ use command::{create_command_buffers, create_command_pool};
 use descriptor::{create_descriptor_pool, create_descriptor_set_layout, create_descriptor_sets, create_uniform_buffers, Mat4, UniformBufferObject};
 use device::{create_logical_device, pick_physical_device};
 use image::{create_depth_objects, create_texture_image, create_texture_image_view, create_texture_sampler};
-use instance::{create_instance, create_sync_objects, VALIDATION_ENABLED};
+use instance::{create_instance, create_sync_objects, load_model, VALIDATION_ENABLED};
 use pipeline::{create_pipeline, create_render_pass};
 use std::mem::size_of;
 use std::ptr::copy_nonoverlapping as memcpy;
@@ -21,7 +21,6 @@ use vulkanalia::vk::KhrSurfaceExtension;
 use vulkanalia::vk::KhrSwapchainExtension;
 use winit::window::Window;
 
-use crate::math::vector::{Vector2, Vector3};
 use crate::Character;
 
 mod buffer;
@@ -37,22 +36,6 @@ mod vertex;
 type Vec3 = cgmath::Vector3<f32>;
 
 pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
-
-static VERTICES: [Vertex; 8] = [
-    Vertex::new(Vector3::new(-0.5, -0.5, 0.0), Vector3::new( 1.0, 0.0, 0.0), Vector2::new(1.0, 0.0)),
-    Vertex::new(Vector3::new( 0.5, -0.5, 0.0), Vector3::new(0.0, 1.0, 0.0), Vector2::new(0.0, 0.0)),
-    Vertex::new(Vector3::new(0.5, 0.5, 0.0), Vector3::new(0.0, 0.0, 1.0), Vector2::new(0.0, 1.0)),
-    Vertex::new(Vector3::new(-0.5, 0.5, 0.0), Vector3::new(1.0, 1.0, 1.0), Vector2::new(1.0,1.0)),
-    Vertex::new(Vector3::new(-0.5, -0.5, -0.5), Vector3::new(1.0, 0.0, 0.0), Vector2::new(1.0,0.0)),
-    Vertex::new(Vector3::new(0.5, -0.5, -0.5), Vector3::new(0.0, 1.0, 0.0), Vector2::new(0.0, 0.0)),
-    Vertex::new(Vector3::new(0.5, 0.5, -0.5), Vector3::new(0.0, 0.0, 1.0), Vector2::new(0.0, 1.0)),
-    Vertex::new(Vector3::new(-0.5, 0.5, -0.5), Vector3::new(1.0, 1.0, 1.0), Vector2::new(1.0, 1.0)),
-];
-
-pub const INDICES: &[u32] = &[
-    0, 1, 2, 2, 3, 0,
-    4, 5, 6, 6, 7, 4,
-];
 
 #[derive(Debug)]
 pub struct Renderer {
@@ -92,6 +75,8 @@ struct RenderData {
     images_in_flight: Vec<vk::Fence>,
 
     // Vertex Buffers
+    vertices: Vec<Vertex>,
+    indices: Vec<u32>,
     vertex_buffer: vk::Buffer,
     vertex_buffer_memory: vk::DeviceMemory,
     index_buffer: vk::Buffer,
@@ -139,6 +124,8 @@ impl Renderer {
         create_texture_image(&instance, &device, &mut data)?;
         create_texture_image_view(&device, &mut data)?;
         create_texture_sampler(&device, &mut data)?;
+
+        load_model(&mut data)?;
         create_vertex_buffer(&instance, &device, &mut data)?;
         create_index_buffer(&instance, &device, &mut data)?;
         create_uniform_buffers(&instance, &device, &mut data)?;
@@ -165,7 +152,7 @@ impl Renderer {
 
         model = model * transformation;
 
-        let view_angle = character.position - character.view_angle.to_vector() * 3.0;
+        let view_angle = character.position - character.view_angle.to_vector() * 1.5;
         let eye = Point3{x: view_angle.x, y: view_angle.y, z: view_angle.z};
 
         let view = Mat4::look_at_rh(

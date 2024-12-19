@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 use vulkanalia::vk::{self, HasBuilder};
 
 use crate::math::vector::Vector3;
@@ -6,9 +8,34 @@ use crate::math::vector::Vector2;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
-    position : Vector3,
-    color: Vector3,
-    tex_coord: Vector2,
+    pub position : Vector3,
+    pub color: Vector3,
+    pub tex_coord: Vector2,
+}
+
+impl PartialEq for Vertex {
+    fn eq(&self, other: &Self) -> bool {
+        self.position == other.position &&
+        self.color == other.color &&
+        self.tex_coord == other.tex_coord
+    }
+}
+
+impl Eq for Vertex {
+
+}
+
+impl Hash for Vertex {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.position.x.to_bits().hash(state);
+        self.position.y.to_bits().hash(state);
+        self.position.z.to_bits().hash(state);
+        self.color.x.to_bits().hash(state);
+        self.color.y.to_bits().hash(state);
+        self.color.z.to_bits().hash(state);
+        self.tex_coord.x.to_bits().hash(state);
+        self.tex_coord.y.to_bits().hash(state);
+    }
 }
 
 impl Vertex {
