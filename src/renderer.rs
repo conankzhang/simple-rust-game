@@ -89,6 +89,7 @@ struct RenderData {
     descriptor_sets : Vec<vk::DescriptorSet>,
 
     // Texture Sampling
+    mip_levels: u32,
     texture_image : vk::Image,
     texture_image_memory: vk::DeviceMemory,
     texture_image_view: vk::ImageView,
@@ -152,7 +153,7 @@ impl Renderer {
 
         model = model * transformation;
 
-        let view_angle = character.position - character.view_angle.to_vector() * 1.5;
+        let view_angle = character.position - character.view_angle.to_vector() * 1.0;
         let eye = Point3{x: view_angle.x, y: view_angle.y, z: view_angle.z};
 
         let view = Mat4::look_at_rh(
